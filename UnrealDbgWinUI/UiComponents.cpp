@@ -1,4 +1,4 @@
-#include "UiComponents.h"
+﻿#include "UiComponents.h"
 
 #include <winrt/Microsoft.UI.Xaml.Automation.h>
 #include <winrt/Windows.Foundation.Collections.h>
@@ -49,7 +49,14 @@ namespace unrealdbg_ui
         Color foreground{};
         Color hover{};
         Color pressed{};
+        Color borderHover{};
+        // 禁用态：下沉的暖灰底 + 细边框 + 弱化文字，仍能看清按钮轮廓和文案。
+        // 不要再额外降低 Opacity，否则与禁用色叠加后几乎消失。
+        Color disabledBackground = ui::kSunken;
+        Color disabledBorder = ui::kBorder;
 
+        // 交互状态必须单调：静止 → 悬停 → 按下 逐级加深（或逐级变亮），不能出现
+        // "悬停变深、按下反而变浅、松开又变深"的来回跳变，否则点击时肉眼可见闪烁。
         switch (variant)
         {
         case ButtonVariant::Primary:
@@ -58,6 +65,7 @@ namespace unrealdbg_ui
             foreground = ui::kTextOnAccent;
             hover = ui::kAccentHover;
             pressed = ui::kAccentPressed;
+            borderHover = ui::kAccentHover;
             break;
         case ButtonVariant::Danger:
             background = ui::kDangerSoft;
@@ -65,21 +73,29 @@ namespace unrealdbg_ui
             foreground = ui::kDanger;
             hover = ui::kDangerHover;
             pressed = ui::kDangerPressed;
+            borderHover = ui::kBorderStrong;
             break;
         case ButtonVariant::Ghost:
-            background = ui::Rgb(0x00, 0x00, 0x00, 0x00);
-            border = ui::Rgb(0x00, 0x00, 0x00, 0x00);
             foreground = ui::kTextSecondary;
             hover = ui::kCardHover;
-            pressed = ui::kSunken;
+            pressed = ui::kBorder;
+            // 透明色保留悬停色的 RGB：Button 模板自带 83ms 的 BrushTransition，
+            // 若从 (0,0,0,0) 透明黑插值，中间帧会先变灰再变暖，看起来就是一闪。
+            background = ui::Transparent(hover);
+            border = ui::Transparent(hover);
+            borderHover = border;
+            disabledBackground = background;
+            disabledBorder = border;
             break;
         case ButtonVariant::Secondary:
         default:
-            background = ui::kCardInset;
+            // Claude 次要按钮：白底 + 细边框，悬停/按下逐级下沉为暖灰。
+            background = ui::kCard;
             border = ui::kBorderStrong;
             foreground = ui::kTextPrimary;
-            hover = ui::kCardHover;
+            hover = ui::kCardInset;
             pressed = ui::kSunken;
+            borderHover = ui::kBorderStrong;
             break;
         }
 
@@ -91,11 +107,11 @@ namespace unrealdbg_ui
         InsertBrush(button, L"ButtonBackground", background);
         InsertBrush(button, L"ButtonBackgroundPointerOver", hover);
         InsertBrush(button, L"ButtonBackgroundPressed", pressed);
-        InsertBrush(button, L"ButtonBackgroundDisabled", ui::kCardInset);
+        InsertBrush(button, L"ButtonBackgroundDisabled", disabledBackground);
         InsertBrush(button, L"ButtonBorderBrush", border);
-        InsertBrush(button, L"ButtonBorderBrushPointerOver", variant == ButtonVariant::Ghost ? ui::Rgb(0, 0, 0, 0) : ui::kBorderStrong);
-        InsertBrush(button, L"ButtonBorderBrushPressed", border);
-        InsertBrush(button, L"ButtonBorderBrushDisabled", ui::kBorder);
+        InsertBrush(button, L"ButtonBorderBrushPointerOver", borderHover);
+        InsertBrush(button, L"ButtonBorderBrushPressed", borderHover);
+        InsertBrush(button, L"ButtonBorderBrushDisabled", disabledBorder);
         InsertBrush(button, L"ButtonForeground", foreground);
         InsertBrush(button, L"ButtonForegroundPointerOver", variant == ButtonVariant::Ghost ? ui::kTextPrimary : foreground);
         InsertBrush(button, L"ButtonForegroundPressed", foreground);
@@ -110,26 +126,24 @@ namespace unrealdbg_ui
         content.Spacing(6);
         content.VerticalAlignment(VerticalAlignment::Center);
 
-        Color foreground = ui::kTextPrimary;
-        switch (variant)
-        {
-        case ButtonVariant::Primary: foreground = ui::kTextOnAccent; break;
-        case ButtonVariant::Danger: foreground = ui::kDanger; break;
-        case ButtonVariant::Ghost: foreground = ui::kTextSecondary; break;
-        default: break;
-        }
-
+        // 图标和文字不设本地前景色，从按钮模板继承：模板在 正常/悬停/按下/禁用
+        // 各状态切换 ButtonForeground* 资源，本地色会把这些状态全部盖掉
+        // （例如主按钮禁用后仍是白字，压在浅色禁用底上就看不见了）。
         if (glyph.size() > 0)
         {
-            content.Children().Append(ui::Icon(glyph, fontSize + 1.0, foreground));
+            FontIcon icon = ui::Icon(glyph, fontSize + 1.0, ui::kTextPrimary);
+            icon.ClearValue(IconElement::ForegroundProperty());
+            content.Children().Append(icon);
         }
-        content.Children().Append(ui::Text(caption, fontSize, foreground, ui::kWeightMedium));
+        TextBlock label = ui::Text(caption, fontSize, ui::kTextPrimary, ui::kWeightRegular);
+        label.ClearValue(TextBlock::ForegroundProperty());
+        content.Children().Append(label);
         button.Content(content);
         winrt::Microsoft::UI::Xaml::Automation::AutomationProperties::SetName(
             button, caption);
-        button.Padding(Only(12, 6, 14, 6));
-        button.MinHeight(30);
-        button.CornerRadius(CornerRadius{ ui::kRadiusSm + 2, ui::kRadiusSm + 2, ui::kRadiusSm + 2, ui::kRadiusSm + 2 });
+        button.Padding(Only(glyph.size() > 0 ? 12 : 14, 6, 14, 6));
+        button.MinHeight(32);
+        button.CornerRadius(CornerRadius{ ui::kRadiusMd, ui::kRadiusMd, ui::kRadiusMd, ui::kRadiusMd });
         button.BorderThickness(Thickness{ 1, 1, 1, 1 });
         button.VerticalAlignment(VerticalAlignment::Center);
         ApplyButtonVisuals(button, variant);
@@ -140,7 +154,7 @@ namespace unrealdbg_ui
         const Color accent, const Color accentSoft)
     {
         CardParts parts;
-        Border card = ui::Surface(ui::kCard, ui::kBorder, ui::kRadiusLg, ui::kSpaceMd);
+        Border card = ui::Surface(ui::kCard, ui::kBorder, ui::kRadiusLg, ui::kSpaceLg);
         Grid layout;
         layout.RowSpacing(ui::kSpaceMd);
 
@@ -162,7 +176,7 @@ namespace unrealdbg_ui
         actionColumn.Width(GridLength{ 1, GridUnitType::Auto });
         header.ColumnDefinitions().Append(actionColumn);
 
-        Border chip = IconChip(glyph, accent, accentSoft, 28, ui::kRadiusMd, 13);
+        Border chip = IconChip(glyph, accent, accentSoft, 30, ui::kRadiusMd, 14);
         Grid::SetColumn(chip, 0);
         header.Children().Append(chip);
 
@@ -170,7 +184,7 @@ namespace unrealdbg_ui
         text.Spacing(3);
         text.Margin(Only(ui::kSpaceMd, 0, ui::kSpaceMd, 0));
         text.VerticalAlignment(VerticalAlignment::Center);
-        text.Children().Append(ui::Text(title, ui::kFontSubtitle, ui::kTextPrimary, ui::kWeightSemiBold));
+        text.Children().Append(ui::Text(title, ui::kFontSubtitle, ui::kTextPrimary, ui::kWeightBold));
         parts.Subtitle = ui::TextWrapped(subtitle, ui::kFontCaption, ui::kTextMuted);
         parts.Subtitle.Visibility(subtitle.empty() ? Visibility::Collapsed : Visibility::Visible);
         text.Children().Append(parts.Subtitle);
@@ -199,21 +213,22 @@ namespace unrealdbg_ui
     UIElement MakeStatTile(const hstring& glyph, const Color accent, const Color accentSoft, const hstring& label,
         const hstring& value, const hstring& hint, TextBlock* valueOut, TextBlock* hintOut)
     {
-        Border tile = ui::Surface(ui::kCard, ui::kBorder, ui::kRadiusLg, ui::kSpaceMd);
+        Border tile = ui::Surface(ui::kCard, ui::kBorder, ui::kRadiusLg, ui::kSpaceLg);
         StackPanel body;
         body.Spacing(6.0);
 
         StackPanel head;
         head.Orientation(Orientation::Horizontal);
         head.Spacing(ui::kSpaceSm);
-        head.Children().Append(IconChip(glyph, accent, accentSoft, 26, ui::kRadiusSm, 13));
-        TextBlock caption = ui::Text(label, ui::kFontCaption, ui::kTextSecondary, ui::kWeightMedium);
+        head.Children().Append(IconChip(glyph, accent, accentSoft, 26, ui::kRadiusMd, 13));
+        TextBlock caption = ui::Text(label, ui::kFontCaption, ui::kTextSecondary, ui::kWeightRegular);
         caption.VerticalAlignment(VerticalAlignment::Center);
         head.Children().Append(caption);
         body.Children().Append(head);
 
-        // 主数值直接取磁贴的语义色：四个磁贴各占一色，数值一眼可辨。
-        TextBlock main = ui::Text(value, ui::kFontHero - 3, accent, ui::kWeightSemiBold);
+        // 主数值用正文色：克制用色，语义色只留给左上角图标底片，状态变化时由页面
+        // 代码按需改色。字重与页面标题一致（Bold），无衬线 22px 用 Regular 偏单薄。
+        TextBlock main = ui::Text(value, ui::kFontTitle, ui::kTextPrimary, ui::kWeightBold);
         main.Margin(Only(0, ui::kSpaceSm, 0, 0));
         main.TextTrimming(TextTrimming::CharacterEllipsis);
         body.Children().Append(main);
@@ -237,7 +252,7 @@ namespace unrealdbg_ui
     {
         Grid row;
         ColumnDefinition labelColumn;
-        labelColumn.Width(GridLength{ 96 });
+        labelColumn.Width(GridLength{ 96, GridUnitType::Pixel });
         row.ColumnDefinitions().Append(labelColumn);
         ColumnDefinition valueColumn;
         valueColumn.Width(GridLength{ 1, GridUnitType::Star });
@@ -245,7 +260,7 @@ namespace unrealdbg_ui
         row.Padding(Only(0, 5, 0, 5));
 
         // 标签带冒号并与取值拉开一列宽度，避免“标签取值”连成一串。
-        TextBlock caption = ui::Text(label + hstring(L"："), ui::kFontCaption, ui::kTextSecondary, ui::kWeightMedium);
+        TextBlock caption = ui::Text(label + hstring(L"："), ui::kFontCaption, ui::kTextSecondary, ui::kWeightRegular);
         caption.VerticalAlignment(VerticalAlignment::Center);
         Grid::SetColumn(caption, 0);
         row.Children().Append(caption);
@@ -281,7 +296,7 @@ namespace unrealdbg_ui
         badge.Background(ui::Brush(ui::kAccentSoft));
         badge.CornerRadius(CornerRadius{ 11.5, 11.5, 11.5, 11.5 });
         badge.VerticalAlignment(VerticalAlignment::Top);
-        TextBlock number = ui::Text(to_hstring(index), ui::kFontMicro + 0.5, ui::kAccentText, ui::kWeightSemiBold);
+        TextBlock number = ui::Text(to_hstring(index), ui::kFontMicro + 0.5, ui::kAccentText, ui::kWeightBold);
         number.TextAlignment(TextAlignment::Center);
         number.HorizontalAlignment(HorizontalAlignment::Center);
         number.VerticalAlignment(VerticalAlignment::Center);
@@ -292,7 +307,7 @@ namespace unrealdbg_ui
         StackPanel text;
         text.Spacing(4);
         text.Margin(Only(ui::kSpaceMd, 0, 0, 0));
-        text.Children().Append(ui::Text(title, ui::kFontCaption, ui::kTextPrimary, ui::kWeightMedium));
+        text.Children().Append(ui::Text(title, ui::kFontCaption, ui::kTextPrimary, ui::kWeightRegular));
         text.Children().Append(ui::TextWrapped(detail, ui::kFontCaption - 0.5, ui::kTextMuted));
         Grid::SetColumn(text, 1);
         row.Children().Append(text);
@@ -302,7 +317,7 @@ namespace unrealdbg_ui
     UIElement MakeToggleRow(const hstring& glyph, const hstring& title, const hstring& detail,
         const Color accent, ToggleSwitch* switchOut)
     {
-        Border row = ui::Surface(ui::kCardInset, ui::kBorder, ui::kRadiusMd, ui::kSpaceLg);
+        Border row = ui::Surface(ui::kCardInset, ui::kBorder, ui::kRadiusLg, ui::kSpaceLg);
         Grid layout;
         ColumnDefinition iconColumn;
         iconColumn.Width(GridLength{ 1, GridUnitType::Auto });
@@ -314,14 +329,14 @@ namespace unrealdbg_ui
         switchColumn.Width(GridLength{ 1, GridUnitType::Auto });
         layout.ColumnDefinitions().Append(switchColumn);
 
-        Border chip = IconChip(glyph, accent, ui::kAccentSoft, 28, ui::kRadiusSm, 14);
+        Border chip = IconChip(glyph, accent, ui::kAccentSoft, 30, ui::kRadiusMd, 14);
         Grid::SetColumn(chip, 0);
         layout.Children().Append(chip);
 
         StackPanel text;
         text.Spacing(3);
         text.Margin(Only(ui::kSpaceMd, 0, ui::kSpaceMd, 0));
-        text.Children().Append(ui::Text(title, ui::kFontCaption, ui::kTextPrimary, ui::kWeightMedium));
+        text.Children().Append(ui::Text(title, ui::kFontCaption, ui::kTextPrimary, ui::kWeightRegular));
         text.Children().Append(ui::TextWrapped(detail, ui::kFontCaption - 0.5, ui::kTextMuted));
         Grid::SetColumn(text, 1);
         layout.Children().Append(text);
@@ -350,7 +365,9 @@ namespace unrealdbg_ui
         stateColumn.Width(GridLength{ 1, GridUnitType::Auto });
         row.ColumnDefinitions().Append(stateColumn);
         ColumnDefinition labelColumn;
-        labelColumn.Width(GridLength{ 120 });
+        // 文件名列固定宽度，保证路径列左缘对齐；140 能放下最长的 VMProtectSDK64.dll
+        // （含左侧 8px 间距），更长的名字由下方 CharacterEllipsis 截断。
+        labelColumn.Width(GridLength{ 140, GridUnitType::Pixel });
         row.ColumnDefinitions().Append(labelColumn);
         ColumnDefinition pathColumn;
         pathColumn.Width(GridLength{ 1, GridUnitType::Star });
@@ -368,6 +385,8 @@ namespace unrealdbg_ui
         TextBlock caption = ui::Text(label, ui::kFontCaption, ui::kTextPrimary);
         caption.Margin(Only(ui::kSpaceSm, 0, 0, 0));
         caption.VerticalAlignment(VerticalAlignment::Center);
+        caption.TextTrimming(TextTrimming::CharacterEllipsis);
+        ui::SetToolTip(caption, label);
         Grid::SetColumn(caption, 1);
         row.Children().Append(caption);
 
@@ -380,7 +399,7 @@ namespace unrealdbg_ui
         row.Children().Append(detail);
 
         TextBlock status = ui::Text(ok ? L"已就绪" : L"缺失", ui::kFontMicro + 0.5,
-            ok ? ui::kSuccess : ui::kDanger, ui::kWeightMedium);
+            ok ? ui::kSuccess : ui::kDanger, ui::kWeightRegular);
         status.VerticalAlignment(VerticalAlignment::Center);
         status.HorizontalAlignment(HorizontalAlignment::Right);
         status.Margin(Only(ui::kSpaceSm, 0, 0, 0));
@@ -406,7 +425,7 @@ namespace unrealdbg_ui
         icon.HorizontalAlignment(HorizontalAlignment::Center);
         panel.Children().Append(icon);
 
-        TextBlock heading = ui::Text(title, ui::kFontBody, ui::kTextSecondary, ui::kWeightMedium);
+        TextBlock heading = ui::Text(title, ui::kFontBody, ui::kTextSecondary, ui::kWeightRegular);
         heading.HorizontalAlignment(HorizontalAlignment::Center);
         panel.Children().Append(heading);
 
@@ -433,7 +452,7 @@ namespace unrealdbg_ui
     {
         Grid row;
         ColumnDefinition iconColumn;
-        iconColumn.Width(GridLength{ 16 });
+        iconColumn.Width(GridLength{ 16, GridUnitType::Pixel });
         row.ColumnDefinitions().Append(iconColumn);
         ColumnDefinition labelColumn;
         labelColumn.Width(GridLength{ 1, GridUnitType::Star });
@@ -454,7 +473,7 @@ namespace unrealdbg_ui
         Grid::SetColumn(caption, 1);
         row.Children().Append(caption);
 
-        TextBlock text = ui::Text(value, ui::kFontMicro + 1, valueColor, ui::kWeightMedium);
+        TextBlock text = ui::Text(value, ui::kFontMicro + 1, valueColor, ui::kWeightRegular);
         text.HorizontalAlignment(HorizontalAlignment::Right);
         text.VerticalAlignment(VerticalAlignment::Center);
         text.TextTrimming(TextTrimming::CharacterEllipsis);
@@ -470,7 +489,7 @@ namespace unrealdbg_ui
 
     UIElement MakeSectionLabel(const hstring& value)
     {
-        TextBlock label = ui::Text(value, ui::kFontMicro + 0.5, ui::kTextMuted, ui::kWeightSemiBold);
+        TextBlock label = ui::Text(value, ui::kFontMicro + 0.5, ui::kTextMuted, ui::kWeightBold);
         label.Margin(Only(0, 0, 0, 8));
         return label;
     }

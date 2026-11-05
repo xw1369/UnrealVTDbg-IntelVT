@@ -34,123 +34,131 @@ namespace unrealdbg_ui
             return Color{ alpha, red, green, blue };
         }
 
+        // 与 tint 同色相的全透明色。凡是会被 BrushTransition 动画过渡到某个颜色的
+        // "透明"底色都应该用它，而不是 (0,0,0,0)，避免过渡中间帧发灰闪烁。
+        inline Color Transparent(const Color tint) noexcept
+        {
+            return Color{ 0, tint.R, tint.G, tint.B };
+        }
+
         // ---------------------------------------------------------------- 颜色
-        // Runtime palettes: dark ink / light rice paper.
+        // Claude 风格调色板：明亮主题为暖米白纸面 + 白色卡片，暗黑主题为暖炭灰；
+        // 唯一的强调色是陶土橙（clay），只用于主操作与选中态，其余语义色都做了降饱和。
         inline bool UseDarkTheme{ false };
-        inline Color kWindowTop{ Rgb(0x0E, 0x18, 0x1A) };
-        inline Color kWindowBottom{ Rgb(0x0B, 0x13, 0x15) };
-        inline Color kTitleBar{ Rgb(0x0A, 0x12, 0x14) };
-        inline Color kSidebar{ Rgb(0x0D, 0x18, 0x1A) };
-        inline Color kCard{ Rgb(0x14, 0x23, 0x26) };
-        inline Color kCardInset{ Rgb(0x10, 0x1D, 0x20) };
-        inline Color kCardHover{ Rgb(0x1A, 0x2D, 0x30) };
-        inline Color kSunken{ Rgb(0x09, 0x11, 0x13) };
-        inline Color kBorder{ Rgb(0x25, 0x38, 0x3B) };
-        inline Color kBorderStrong{ Rgb(0x34, 0x4B, 0x4D) };
-        inline Color kTextPrimary{ Rgb(0xEF, 0xF1, 0xE9) };
-        inline Color kTextSecondary{ Rgb(0xA9, 0xB7, 0xB2) };
-        inline Color kTextMuted{ Rgb(0x73, 0x86, 0x83) };
-        inline Color kTextOnAccent{ Rgb(0x07, 0x16, 0x12) };
-        inline Color kAccent{ Rgb(0x67, 0xB7, 0x9B) };
-        inline Color kAccentHover{ Rgb(0x7D, 0xC9, 0xAD) };
-        inline Color kAccentPressed{ Rgb(0x50, 0x98, 0x80) };
-        inline Color kAccentSoft{ Rgb(0x16, 0x32, 0x2B) };
-        inline Color kAccentText{ Rgb(0xC0, 0xE7, 0xD9) };
-        inline Color kCinnabar{ Rgb(0xD8, 0x68, 0x52) };
-        inline Color kCinnabarSoft{ Rgb(0x32, 0x1C, 0x18) };
-        inline Color kGold{ Rgb(0xCF, 0xAD, 0x70) };
-        inline Color kGoldSoft{ Rgb(0x2D, 0x27, 0x1A) };
-        inline Color kSuccess{ Rgb(0x67, 0xC6, 0x9D) };
-        inline Color kSuccessSoft{ Rgb(0x12, 0x2B, 0x24) };
-        inline Color kWarning{ Rgb(0xD8, 0xB0, 0x6E) };
-        inline Color kWarningSoft{ Rgb(0x30, 0x28, 0x18) };
-        inline Color kDanger{ Rgb(0xE0, 0x77, 0x68) };
-        inline Color kDangerSoft{ Rgb(0x31, 0x1A, 0x18) };
-        inline Color kDangerHover{ Rgb(0x43, 0x21, 0x1F) };
-        inline Color kDangerPressed{ Rgb(0x27, 0x13, 0x12) };
-        inline Color kInfo{ Rgb(0x86, 0xB9, 0xC2) };
-        inline Color kInfoSoft{ Rgb(0x18, 0x2B, 0x2E) };
-        inline Color kDebug{ Rgb(0x90, 0xB5, 0xBF) };
-        inline Color kDebugSoft{ Rgb(0x16, 0x25, 0x28) };
+        inline Color kWindowTop{ Rgb(0xFA, 0xF9, 0xF5) };
+        inline Color kWindowBottom{ Rgb(0xF5, 0xF4, 0xEE) };
+        inline Color kTitleBar{ Rgb(0xF0, 0xEE, 0xE6) };
+        inline Color kSidebar{ Rgb(0xF0, 0xEE, 0xE6) };
+        inline Color kCard{ Rgb(0xFF, 0xFF, 0xFF) };
+        inline Color kCardInset{ Rgb(0xF7, 0xF6, 0xF1) };
+        inline Color kCardHover{ Rgb(0xE8, 0xE6, 0xDC) };
+        inline Color kSunken{ Rgb(0xEE, 0xEC, 0xE3) };
+        inline Color kBorder{ Rgb(0xE5, 0xE2, 0xD7) };
+        inline Color kBorderStrong{ Rgb(0xD3, 0xCF, 0xC2) };
+        inline Color kTextPrimary{ Rgb(0x1F, 0x1E, 0x1C) };
+        inline Color kTextSecondary{ Rgb(0x4D, 0x4B, 0x45) };
+        inline Color kTextMuted{ Rgb(0x85, 0x83, 0x7B) };
+        inline Color kTextOnAccent{ Rgb(0xFF, 0xFF, 0xFF) };
+        inline Color kAccent{ Rgb(0xC9, 0x64, 0x42) };
+        inline Color kAccentHover{ Rgb(0xB9, 0x5A, 0x3A) };
+        inline Color kAccentPressed{ Rgb(0xA4, 0x4F, 0x33) };
+        inline Color kAccentSoft{ Rgb(0xF6, 0xE7, 0xDF) };
+        inline Color kAccentText{ Rgb(0xA4, 0x49, 0x2B) };
+        inline Color kCinnabar{ Rgb(0xD9, 0x77, 0x57) };
+        inline Color kCinnabarSoft{ Rgb(0xF8, 0xE5, 0xDC) };
+        inline Color kGold{ Rgb(0xA2, 0x7B, 0x36) };
+        inline Color kGoldSoft{ Rgb(0xF3, 0xEA, 0xD6) };
+        inline Color kSuccess{ Rgb(0x4C, 0x8A, 0x5A) };
+        inline Color kSuccessSoft{ Rgb(0xE3, 0xEE, 0xE2) };
+        inline Color kWarning{ Rgb(0xA5, 0x77, 0x28) };
+        inline Color kWarningSoft{ Rgb(0xF5, 0xEB, 0xD5) };
+        inline Color kDanger{ Rgb(0xB5, 0x46, 0x3C) };
+        inline Color kDangerSoft{ Rgb(0xF6, 0xE2, 0xDE) };
+        inline Color kDangerHover{ Rgb(0xEF, 0xD4, 0xCF) };
+        inline Color kDangerPressed{ Rgb(0xE6, 0xC4, 0xBE) };
+        inline Color kInfo{ Rgb(0x4F, 0x75, 0x93) };
+        inline Color kInfoSoft{ Rgb(0xE3, 0xEA, 0xF0) };
+        inline Color kDebug{ Rgb(0x6E, 0x6C, 0x65) };
+        inline Color kDebugSoft{ Rgb(0xEE, 0xED, 0xE6) };
 
         inline void SetTheme(const bool dark)
         {
             UseDarkTheme = dark;
             if (dark)
             {
-                kWindowTop = Rgb(0x0E, 0x18, 0x1A);
-                kWindowBottom = Rgb(0x0B, 0x13, 0x15);
-                kTitleBar = Rgb(0x0A, 0x12, 0x14);
-                kSidebar = Rgb(0x0D, 0x18, 0x1A);
-                kCard = Rgb(0x14, 0x23, 0x26);
-                kCardInset = Rgb(0x10, 0x1D, 0x20);
-                kCardHover = Rgb(0x1A, 0x2D, 0x30);
-                kSunken = Rgb(0x09, 0x11, 0x13);
-                kBorder = Rgb(0x25, 0x38, 0x3B);
-                kBorderStrong = Rgb(0x34, 0x4B, 0x4D);
-                kTextPrimary = Rgb(0xEF, 0xF1, 0xE9);
-                kTextSecondary = Rgb(0xA9, 0xB7, 0xB2);
-                kTextMuted = Rgb(0x73, 0x86, 0x83);
-                kTextOnAccent = Rgb(0x07, 0x16, 0x12);
-                kAccent = Rgb(0x67, 0xB7, 0x9B);
-                kAccentHover = Rgb(0x7D, 0xC9, 0xAD);
-                kAccentPressed = Rgb(0x50, 0x98, 0x80);
-                kAccentSoft = Rgb(0x16, 0x32, 0x2B);
-                kAccentText = Rgb(0xC0, 0xE7, 0xD9);
-                kCinnabar = Rgb(0xD8, 0x68, 0x52);
-                kCinnabarSoft = Rgb(0x32, 0x1C, 0x18);
-                kGold = Rgb(0xCF, 0xAD, 0x70);
-                kGoldSoft = Rgb(0x2D, 0x27, 0x1A);
-                kSuccess = Rgb(0x67, 0xC6, 0x9D);
-                kSuccessSoft = Rgb(0x12, 0x2B, 0x24);
-                kWarning = Rgb(0xD8, 0xB0, 0x6E);
-                kWarningSoft = Rgb(0x30, 0x28, 0x18);
-                kDanger = Rgb(0xE0, 0x77, 0x68);
-                kDangerSoft = Rgb(0x31, 0x1A, 0x18);
-                kDangerHover = Rgb(0x43, 0x21, 0x1F);
-                kDangerPressed = Rgb(0x27, 0x13, 0x12);
-                kInfo = Rgb(0x86, 0xB9, 0xC2);
-                kInfoSoft = Rgb(0x18, 0x2B, 0x2E);
-                kDebug = Rgb(0x90, 0xB5, 0xBF);
-                kDebugSoft = Rgb(0x16, 0x25, 0x28);
+                kWindowTop = Rgb(0x26, 0x26, 0x24);
+                kWindowBottom = Rgb(0x22, 0x22, 0x20);
+                kTitleBar = Rgb(0x1F, 0x1E, 0x1D);
+                kSidebar = Rgb(0x1F, 0x1E, 0x1D);
+                kCard = Rgb(0x30, 0x30, 0x2E);
+                kCardInset = Rgb(0x2B, 0x2A, 0x28);
+                kCardHover = Rgb(0x3A, 0x39, 0x36);
+                kSunken = Rgb(0x1A, 0x19, 0x18);
+                kBorder = Rgb(0x3B, 0x3A, 0x36);
+                kBorderStrong = Rgb(0x4D, 0x4C, 0x47);
+                kTextPrimary = Rgb(0xF5, 0xF4, 0xEE);
+                kTextSecondary = Rgb(0xC3, 0xC1, 0xB7);
+                kTextMuted = Rgb(0x95, 0x93, 0x89);
+                kTextOnAccent = Rgb(0xFF, 0xFF, 0xFF);
+                kAccent = Rgb(0xC9, 0x64, 0x42);
+                kAccentHover = Rgb(0xD5, 0x71, 0x4F);
+                kAccentPressed = Rgb(0xB0, 0x56, 0x37);
+                kAccentSoft = Rgb(0x3D, 0x2A, 0x22);
+                kAccentText = Rgb(0xE8, 0x95, 0x7A);
+                kCinnabar = Rgb(0xE0, 0x85, 0x66);
+                kCinnabarSoft = Rgb(0x3B, 0x2A, 0x23);
+                kGold = Rgb(0xD4, 0xA7, 0x62);
+                kGoldSoft = Rgb(0x3A, 0x31, 0x22);
+                kSuccess = Rgb(0x7D, 0xB8, 0x8A);
+                kSuccessSoft = Rgb(0x25, 0x32, 0x28);
+                kWarning = Rgb(0xD9, 0xAE, 0x62);
+                kWarningSoft = Rgb(0x3A, 0x31, 0x22);
+                kDanger = Rgb(0xE3, 0x79, 0x6B);
+                kDangerSoft = Rgb(0x3D, 0x25, 0x23);
+                kDangerHover = Rgb(0x4A, 0x2C, 0x29);
+                kDangerPressed = Rgb(0x2F, 0x1D, 0x1B);
+                kInfo = Rgb(0x8A, 0xB0, 0xCF);
+                kInfoSoft = Rgb(0x25, 0x30, 0x3A);
+                kDebug = Rgb(0xA8, 0xA6, 0x9D);
+                kDebugSoft = Rgb(0x2E, 0x2E, 0x2B);
             }
             else
             {
-                kWindowTop = Rgb(0xF4, 0xF1, 0xE8);
-                kWindowBottom = Rgb(0xF8, 0xF6, 0xF0);
-                kTitleBar = Rgb(0xEC, 0xE8, 0xDE);
-                kSidebar = Rgb(0xEF, 0xEB, 0xE1);
-                kCard = Rgb(0xFB, 0xF9, 0xF4);
-                kCardInset = Rgb(0xF3, 0xEF, 0xE6);
-                kCardHover = Rgb(0xE8, 0xE3, 0xD7);
-                kSunken = Rgb(0xE9, 0xE4, 0xD9);
-                kBorder = Rgb(0xD5, 0xCF, 0xC1);
-                kBorderStrong = Rgb(0xB8, 0xB0, 0xA1);
-                kTextPrimary = Rgb(0x1C, 0x27, 0x26);
-                kTextSecondary = Rgb(0x4F, 0x5F, 0x5A);
-                kTextMuted = Rgb(0x7A, 0x87, 0x82);
+                kWindowTop = Rgb(0xFA, 0xF9, 0xF5);
+                kWindowBottom = Rgb(0xF5, 0xF4, 0xEE);
+                kTitleBar = Rgb(0xF0, 0xEE, 0xE6);
+                kSidebar = Rgb(0xF0, 0xEE, 0xE6);
+                kCard = Rgb(0xFF, 0xFF, 0xFF);
+                kCardInset = Rgb(0xF7, 0xF6, 0xF1);
+                kCardHover = Rgb(0xE8, 0xE6, 0xDC);
+                kSunken = Rgb(0xEE, 0xEC, 0xE3);
+                kBorder = Rgb(0xE5, 0xE2, 0xD7);
+                kBorderStrong = Rgb(0xD3, 0xCF, 0xC2);
+                kTextPrimary = Rgb(0x1F, 0x1E, 0x1C);
+                kTextSecondary = Rgb(0x4D, 0x4B, 0x45);
+                kTextMuted = Rgb(0x85, 0x83, 0x7B);
                 kTextOnAccent = Rgb(0xFF, 0xFF, 0xFF);
-                kAccent = Rgb(0x2F, 0x7F, 0x67);
-                kAccentHover = Rgb(0x3E, 0x92, 0x78);
-                kAccentPressed = Rgb(0x23, 0x66, 0x51);
-                kAccentSoft = Rgb(0xDE, 0xEC, 0xE6);
-                kAccentText = Rgb(0x23, 0x5F, 0x4D);
-                kCinnabar = Rgb(0xB7, 0x4D, 0x3B);
-                kCinnabarSoft = Rgb(0xF1, 0xDE, 0xD8);
-                kGold = Rgb(0x94, 0x72, 0x35);
-                kGoldSoft = Rgb(0xEE, 0xE4, 0xD0);
-                kSuccess = Rgb(0x2D, 0x88, 0x66);
-                kSuccessSoft = Rgb(0xDD, 0xEF, 0xE7);
-                kWarning = Rgb(0x95, 0x6F, 0x27);
-                kWarningSoft = Rgb(0xF4, 0xE9, 0xD0);
-                kDanger = Rgb(0xB4, 0x4C, 0x42);
-                kDangerSoft = Rgb(0xF3, 0xE0, 0xDD);
-                kDangerHover = Rgb(0xE8, 0xCF, 0xCB);
-                kDangerPressed = Rgb(0xDD, 0xBD, 0xB8);
-                kInfo = Rgb(0x45, 0x76, 0x86);
-                kInfoSoft = Rgb(0xE0, 0xEB, 0xEE);
-                kDebug = Rgb(0x5E, 0x78, 0x82);
-                kDebugSoft = Rgb(0xE8, 0xEE, 0xF0);
+                kAccent = Rgb(0xC9, 0x64, 0x42);
+                kAccentHover = Rgb(0xB9, 0x5A, 0x3A);
+                kAccentPressed = Rgb(0xA4, 0x4F, 0x33);
+                kAccentSoft = Rgb(0xF6, 0xE7, 0xDF);
+                kAccentText = Rgb(0xA4, 0x49, 0x2B);
+                kCinnabar = Rgb(0xD9, 0x77, 0x57);
+                kCinnabarSoft = Rgb(0xF8, 0xE5, 0xDC);
+                kGold = Rgb(0xA2, 0x7B, 0x36);
+                kGoldSoft = Rgb(0xF3, 0xEA, 0xD6);
+                kSuccess = Rgb(0x4C, 0x8A, 0x5A);
+                kSuccessSoft = Rgb(0xE3, 0xEE, 0xE2);
+                kWarning = Rgb(0xA5, 0x77, 0x28);
+                kWarningSoft = Rgb(0xF5, 0xEB, 0xD5);
+                kDanger = Rgb(0xB5, 0x46, 0x3C);
+                kDangerSoft = Rgb(0xF6, 0xE2, 0xDE);
+                kDangerHover = Rgb(0xEF, 0xD4, 0xCF);
+                kDangerPressed = Rgb(0xE6, 0xC4, 0xBE);
+                kInfo = Rgb(0x4F, 0x75, 0x93);
+                kInfoSoft = Rgb(0xE3, 0xEA, 0xF0);
+                kDebug = Rgb(0x6E, 0x6C, 0x65);
+                kDebugSoft = Rgb(0xEE, 0xED, 0xE6);
             }
         }
 
@@ -160,13 +168,16 @@ namespace unrealdbg_ui
         inline constexpr double kFontCaption{ 12.0 };    // 说明文字、副标题
         inline constexpr double kFontBody{ 13.0 };       // 正文、行标题
         inline constexpr double kFontSubtitle{ 15.0 };   // 区块标题
-        inline constexpr double kFontTitle{ 18.0 };      // 页面标题、指标数值
-        inline constexpr double kFontHero{ 25.0 };       // 主数值
+        inline constexpr double kFontTitle{ 22.0 };      // 页面标题、磁贴主数值
+        inline constexpr double kFontHero{ 26.0 };       // 总览状态大标题
         inline constexpr double kFontMono{ 12.0 };       // 等宽文本（路径、日志）
 
+        // 只有两档字重，且必须对应字体里真实存在的字面：Microsoft YaHei UI 只有
+        // Light(290) / Regular(400) / Bold(700)。请求 500、600 这类不存在的字重时，
+        // WinUI 的匹配结果随字号变化（实测 600 在 15px 落到 Bold、22px 落到 Regular），
+        // 同为"SemiBold"的标题有的粗有的细。所以不提供 Medium / SemiBold。
         inline constexpr FontWeight kWeightRegular{ 400 };
-        inline constexpr FontWeight kWeightMedium{ 500 };
-        inline constexpr FontWeight kWeightSemiBold{ 600 };
+        inline constexpr FontWeight kWeightBold{ 700 };
 
         // -------------------------------------------------------------- 行高
         // 行高规范：单行文本 1.30 倍字号，多行文本 1.50 倍字号。所有文本工厂
@@ -185,15 +196,35 @@ namespace unrealdbg_ui
         inline constexpr double kSpaceXxl{ 22.0 };
 
         // -------------------------------------------------------------- 圆角
-        inline constexpr double kRadiusSm{ 4.0 };
-        inline constexpr double kRadiusMd{ 6.0 };
-        inline constexpr double kRadiusLg{ 8.0 };
+        // 全界面只有两档圆角 + 两种全圆，不允许出现其它数值：
+        //   kRadiusMd（8） 控件与小块：按钮、输入框、下拉框、导航项、列表项、
+        //                  工具条、卡片内嵌块、≤32px 的图标底片 / 品牌标记；
+        //   kRadiusLg（12）容器与大块：卡片、面板、底部状态卡、内容区外框、
+        //                  弹出层（下拉列表、提示框）、≥40px 的印章；
+        //   全圆：状态圆点、序号徽标用 尺寸/2；胶囊标签用 MakeCapsule()。
+        // 原生控件（TextBox、ComboBox 等）默认 4 / 8，由 ApplyAccentResources
+        // 统一改写成上面两档。
+        inline constexpr double kRadiusMd{ 8.0 };
+        inline constexpr double kRadiusLg{ 12.0 };
+        // 胶囊（全圆两端）没有常量半径，统一用 MakeCapsule()，按实际高度取一半。
 
         // -------------------------------------------------------------- 尺寸
-        inline constexpr double kTitleBarHeight{ 46.0 };
-        inline constexpr double kNavWidth{ 202.0 };
+        // 与系统标题栏按钮的 Tall 高度（48）一致，自绘内容和最小化/最大化/关闭
+        // 按钮共用同一条垂直中线。
+        inline constexpr double kTitleBarHeight{ 48.0 };
+        // 右侧为系统标题栏按钮（3 × 46）预留的宽度，外加 10px 与自绘工具按钮的间隙。
+        inline constexpr double kTitleBarCaptionInset{ 148.0 };
+        // 侧栏宽度按内容推算：最长导航项"诊断与文件"约 133px；底部状态卡需要
+        // 标签（约 24px）+ 取值上限 kNavValueMaxWidth，再加外边距/内边距/边框 46px。
+        // 180 让两者都有余量，右侧留白又不显空。
+        inline constexpr double kNavWidth{ 180.0 };
+        inline constexpr double kNavValueMaxWidth{ 96.0 };
         inline constexpr double kNavCollapsedWidth{ 56.0 };
-        inline constexpr double kNavItemHeight{ 38.0 };
+        inline constexpr double kNavItemHeight{ 36.0 };
+        // 侧栏左右留白（导航列表、底部状态卡的外边距）与内容对齐线（分组标题、
+        // 导航图标、状态卡文字的统一起点）。
+        inline constexpr double kSidebarGutter{ 10.0 };
+        inline constexpr double kSidebarInset{ 22.0 };
         inline constexpr double kSplitterHeight{ 5.0 };
         inline constexpr double kLogHeaderHeight{ 34.0 };
         inline constexpr double kLogDefaultHeight{ 218.0 };
@@ -223,7 +254,9 @@ namespace unrealdbg_ui
         inline const wchar_t* const kGlyphChevronUp{ L"\uE70E" };
         inline const wchar_t* const kGlyphChevronLeft{ L"\uE76B" };
         inline const wchar_t* const kGlyphChevronRight{ L"\uE76C" };
-        inline const wchar_t* const kGlyphFolder{ L"\uE8B7" };    // Folder
+        // OpenFolderHorizontal\uFF1A\u6A2A\u5411\u6587\u4EF6\u5939\uFF0CWin10 \u7684 MDL2 \u4E0E Win11 \u7684 Fluent \u4E0B\u90FD\u6E05\u695A\uFF1B
+        // E8B7/E838 \u5728 MDL2 \u91CC\u662F\u7AD6\u7248\u8F6E\u5ED3\uFF0C14px \u4E0B\u50CF\u5E73\u677F\u6216\u95E8\uFF0C\u8FA8\u8BC6\u5EA6\u5DEE\u3002
+        inline const wchar_t* const kGlyphFolder{ L"\uED25" };
         inline const wchar_t* const kGlyphCheck{ L"\uE73E" };      // CheckMark
         inline const wchar_t* const kGlyphWarning{ L"\uE7BA" };    // Warning
         inline const wchar_t* const kGlyphError{ L"\uEA39" };      // StatusErrorFull
@@ -239,13 +272,20 @@ namespace unrealdbg_ui
         inline const wchar_t* const kIconFontFamily{ L"Segoe Fluent Icons,Segoe MDL2 Assets" };
 
         // -------------------------------------------------------------- 字体族
-        // 中文优先的字体链。Windows 11 上拉丁字形使用 Segoe UI Variable，
-        // 中文字形优先 Microsoft YaHei UI，避免宋体在 10-13px 下发虚。
+        // 全界面只用三组字体，不允许在页面代码里另写字体名：
+        //   kUiFontFamily   所有文字（正文、标题、数值），中英文都由 YaHei UI 渲染；
+        //   kMonoFontFamily 路径、日志、版本号等等宽文本；
+        //   kIconFontFamily 图标（上方定义）。
+        // 不再使用衬线标题：衬线中文（思源宋体等）是否安装、装了哪些字重因机器而异，
+        // 同一界面会在宋体/黑体之间漂移，且只装 Heavy 时标题会异常粗。
+        // 原先按字号区分的 Display 变体也去掉——YaHei UI 排在首位，Display/Text
+        // 两组实际渲染结果一致。
         inline const wchar_t* const kUiFontFamily{
-            L"Microsoft YaHei UI, Segoe UI Variable Text, Microsoft YaHei, Segoe UI" };
-        inline const wchar_t* const kUiDisplayFontFamily{
-            L"Microsoft YaHei UI, Segoe UI Variable Display, Segoe UI Variable Text, Segoe UI" };
-        inline const wchar_t* const kMonoFontFamily{ L"Cascadia Mono, Consolas, Courier New" };
+            L"Microsoft YaHei UI, Microsoft YaHei, Segoe UI" };
+        // 末尾显式接 YaHei UI：等宽字体不含中文，日志里的中文统一回退到它，
+        // 而不是由系统随机挑选。
+        inline const wchar_t* const kMonoFontFamily{
+            L"Cascadia Mono, Consolas, Courier New, Microsoft YaHei UI" };
 
         // 字号 -> 行高（像素）换算，供文本工厂统一套用。
         inline double LineHeightFor(const double size, const double ratio) noexcept
@@ -273,15 +313,15 @@ namespace unrealdbg_ui
             return brush;
         }
 
-        // 所有文本统一走这里：字号（外部传入）+ 字体族（按字号自动切 Display/Text
-        // 变体）+ 行高（按行高规范换算），页面代码不再重复设置字体属性。
+        // 所有文本统一走这里：字号、字重（外部传入）+ 字体族（固定 kUiFontFamily）
+        // + 行高（按行高规范换算），页面代码不再重复设置字体属性。
         inline TextBlock Text(const winrt::hstring& value, const double size, const Color color,
             const FontWeight weight = kWeightRegular)
         {
             TextBlock block;
             block.Text(value);
             block.FontSize(size);
-            block.FontFamily(FontFamily(size >= kFontSubtitle ? kUiDisplayFontFamily : kUiFontFamily));
+            block.FontFamily(FontFamily(kUiFontFamily));
             block.Foreground(Brush(color));
             block.FontWeight(weight);
             block.TextWrapping(winrt::Microsoft::UI::Xaml::TextWrapping::NoWrap);
@@ -346,13 +386,36 @@ namespace unrealdbg_ui
             return dot;
         }
 
+        // 把 Border 变成真正的胶囊（两端是正半圆）。
+        //
+        // 不能直接写 CornerRadius = 999：WinUI 在圆角超过尺寸时按横、纵两个方向
+        // 各自压缩半径，横向被压到 宽/2、纵向被压到 高/2，两端就成了椭圆弧，
+        // 整体像个橄榄。这里按实际高度取 高/2，尺寸变化（文字更新、DPI 变化）时重算。
+        inline void MakeCapsule(const Border& border)
+        {
+            border.SizeChanged([](const winrt::Windows::Foundation::IInspectable& sender,
+                const winrt::Microsoft::UI::Xaml::SizeChangedEventArgs& args)
+            {
+                const Border self = sender.try_as<Border>();
+                if (self == nullptr)
+                {
+                    return;
+                }
+                const double radius = args.NewSize().Height / 2.0;
+                if (self.CornerRadius().TopLeft != radius)
+                {
+                    self.CornerRadius(winrt::Microsoft::UI::Xaml::CornerRadius{ radius, radius, radius, radius });
+                }
+            });
+        }
+
         // 胶囊标签：状态、计数、分级都用它。
         inline Border Pill(const winrt::hstring& value, const Color foreground, const Color background,
             const double fontSize = kFontMicro)
         {
             Border pill;
             pill.Background(Brush(background));
-            pill.CornerRadius(winrt::Microsoft::UI::Xaml::CornerRadius{ 999, 999, 999, 999 });
+            MakeCapsule(pill);
             pill.Padding(winrt::Microsoft::UI::Xaml::Thickness{ 10, 3, 10, 3 });
             pill.VerticalAlignment(winrt::Microsoft::UI::Xaml::VerticalAlignment::Center);
             TextBlock label = Text(value, fontSize, foreground);
@@ -376,9 +439,98 @@ namespace unrealdbg_ui
             return winrt::Microsoft::UI::Xaml::Thickness{ left, top, right, bottom };
         }
 
+        // 把系统强调色替换成 Claude 陶土橙：ToggleSwitch、CheckBox、ProgressBar/Ring、
+        // ListView 选中指示条、输入框焦点线等原生控件都从这些键取色。挂到根元素的
+        // Resources 上即可覆盖整棵可视树（主题切换会重建根元素，随之刷新）。
+        inline void ApplyAccentResources(const winrt::Microsoft::UI::Xaml::ResourceDictionary& resources)
+        {
+            const auto put = [&](const wchar_t* key, const Color color)
+            {
+                resources.Insert(winrt::box_value(winrt::hstring(key)), winrt::box_value(SolidColorBrush(color)));
+            };
+            const auto putColor = [&](const wchar_t* key, const Color color)
+            {
+                resources.Insert(winrt::box_value(winrt::hstring(key)), winrt::box_value(color));
+            };
+
+            // 原生控件圆角：WinUI 默认 ControlCornerRadius=4、OverlayCornerRadius=8，
+            // 与自绘按钮（8）、卡片（12）对不上，统一改到两档令牌。
+            resources.Insert(winrt::box_value(winrt::hstring(L"ControlCornerRadius")),
+                winrt::box_value(winrt::Microsoft::UI::Xaml::CornerRadius{ kRadiusMd, kRadiusMd, kRadiusMd, kRadiusMd }));
+            resources.Insert(winrt::box_value(winrt::hstring(L"OverlayCornerRadius")),
+                winrt::box_value(winrt::Microsoft::UI::Xaml::CornerRadius{ kRadiusLg, kRadiusLg, kRadiusLg, kRadiusLg }));
+
+            // 原生控件（TextBox、ComboBox、ToggleSwitch、ToolTip 等）不走 Text()，
+            // 默认字体是 XamlAutoFontFamily，英文会落到 Segoe UI；统一到 kUiFontFamily。
+            resources.Insert(winrt::box_value(winrt::hstring(L"ContentControlThemeFontFamily")),
+                FontFamily(kUiFontFamily));
+
+            putColor(L"SystemAccentColor", kAccent);
+            putColor(L"SystemAccentColorLight1", kAccentHover);
+            putColor(L"SystemAccentColorLight2", kAccentHover);
+            putColor(L"SystemAccentColorLight3", kAccentText);
+            putColor(L"SystemAccentColorDark1", kAccentPressed);
+            putColor(L"SystemAccentColorDark2", kAccentPressed);
+            putColor(L"SystemAccentColorDark3", kAccentPressed);
+
+            const Color secondary = Rgb(kAccent.R, kAccent.G, kAccent.B, 0xE6);
+            const Color tertiary = Rgb(kAccent.R, kAccent.G, kAccent.B, 0xCC);
+            put(L"AccentFillColorDefaultBrush", kAccent);
+            put(L"AccentFillColorSecondaryBrush", secondary);
+            put(L"AccentFillColorTertiaryBrush", tertiary);
+            put(L"AccentTextFillColorPrimaryBrush", kAccentText);
+            put(L"AccentTextFillColorSecondaryBrush", kAccentText);
+            put(L"AccentTextFillColorTertiaryBrush", kAccentText);
+
+            put(L"ToggleSwitchFillOn", kAccent);
+            put(L"ToggleSwitchFillOnPointerOver", kAccentHover);
+            put(L"ToggleSwitchFillOnPressed", kAccentPressed);
+            put(L"ToggleSwitchStrokeOn", kAccent);
+            put(L"ToggleSwitchStrokeOnPointerOver", kAccentHover);
+            put(L"ToggleSwitchStrokeOnPressed", kAccentPressed);
+
+            put(L"CheckBoxCheckBackgroundFillChecked", kAccent);
+            put(L"CheckBoxCheckBackgroundFillCheckedPointerOver", kAccentHover);
+            put(L"CheckBoxCheckBackgroundFillCheckedPressed", kAccentPressed);
+            put(L"CheckBoxCheckBackgroundStrokeChecked", kAccent);
+            put(L"CheckBoxCheckBackgroundStrokeCheckedPointerOver", kAccentHover);
+            put(L"CheckBoxCheckBackgroundStrokeCheckedPressed", kAccentPressed);
+
+            put(L"ProgressBarForeground", kAccent);
+            put(L"ProgressRingForegroundThemeBrush", kAccent);
+
+            put(L"ListViewItemSelectionIndicatorBrush", kAccent);
+            put(L"ListViewItemSelectionIndicatorPointerOverBrush", kAccentHover);
+            put(L"ListViewItemSelectionIndicatorPressedBrush", kAccentPressed);
+            // 列表项：静止 → 悬停 → 按下/选中 单调加深；按下态也要覆盖，否则点击时
+            // 会闪出系统默认的冷灰色。
+            put(L"ListViewItemBackgroundPointerOver", kCardInset);
+            put(L"ListViewItemBackgroundPressed", kCardHover);
+            put(L"ListViewItemBackgroundSelected", kCardHover);
+            put(L"ListViewItemBackgroundSelectedPointerOver", kCardHover);
+            put(L"ListViewItemBackgroundSelectedPressed", kCardHover);
+
+            put(L"TextControlBorderBrushFocused", kAccent);
+            put(L"TextControlSelectionHighlightColor", kAccent);
+            put(L"HyperlinkButtonForeground", kAccentText);
+            put(L"HyperlinkButtonForegroundPointerOver", kAccent);
+        }
+
+        // 内容未变时不重设：每次 SetToolTip 都会替换 ToolTip 对象，若鼠标正停在
+        // 元素上，已弹出的提示会被关闭再重新弹出（定时刷新时表现为悬停闪烁）。
         inline void SetToolTip(const winrt::Microsoft::UI::Xaml::DependencyObject& element, const winrt::hstring& value)
         {
-            winrt::Microsoft::UI::Xaml::Controls::ToolTipService::SetToolTip(element, winrt::box_value(value));
+            using winrt::Microsoft::UI::Xaml::Controls::ToolTipService;
+            const winrt::Windows::Foundation::IInspectable current = ToolTipService::GetToolTip(element);
+            if (current != nullptr)
+            {
+                const auto existing = current.try_as<winrt::Windows::Foundation::IReference<winrt::hstring>>();
+                if (existing != nullptr && existing.Value() == value)
+                {
+                    return;
+                }
+            }
+            ToolTipService::SetToolTip(element, winrt::box_value(value));
         }
     }
 

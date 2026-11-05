@@ -25,7 +25,7 @@
 - **系统符号**：进入页面时不自动解析；点击“初始化”后才递归解析 `C:\Symbols` 下全部 PDB，列出函数、变量、RVA、当前已加载模块地址，以及 `_ETHREAD.CrossThreadFlags` 等结构字段偏移；支持全局搜索、PDB/类型切换、仅项目使用过滤、自定义 PDB，并默认隐藏编译器 lambda 与 `??` 内部符号。
 - **符号缓存**：自动校验 `ntoskrnl`、`win32kbase`、`win32kfull` PDB，支持缓存复用和重新检查。
 
-暗黑主题采用墨青、竹青、朱砂和宣纸白；明亮主题采用宣纸白、深墨、竹青和低饱和朱砂。中文正文使用 Microsoft YaHei UI，数值和路径使用 Cascadia Mono / Consolas 回退链。
+界面采用 Claude 风格：明亮主题为暖米白纸面 + 白色卡片，暗黑主题为暖炭灰；陶土橙（#C96442）是唯一强调色，只用于主操作、选中态与原生控件（开关、进度条、复选框等，经 `ApplyAccentResources` 覆盖系统强调色），其余语义色均降饱和。标题栏与侧栏共用一块底色，内容区作为左上圆角面板嵌入。圆角只有两档：容器（卡片、面板、弹出层）12、控件（按钮、输入框、下拉框、导航项）8，状态标签为按实际高度计算的全圆胶囊；原生控件经 `ControlCornerRadius` / `OverlayCornerRadius` 统一到这两档。全界面只用三组字体：文字一律 Microsoft YaHei UI（含原生控件），字重只有 Regular / Bold 两档（雅黑没有 Medium/SemiBold 字面）；路径、日志等等宽文本用 Cascadia Mono / Consolas 回退链；图标用 Segoe Fluent Icons / MDL2 Assets。Windows 10 上标题栏顶部系统留下的 1px 白线会重画为标题栏色；左右的深灰细线是 DWM 系统边框，Win10 无法在应用内修改，Win11 下设为主题边框色。
 
 日志中心对内核与 Hook 日志使用 UTF-8、CP936/GBK、GB18030 和系统代码页联合判定，避免在 UTF-8 活动代码页进程中把 GBK 中文误读为乱码。
 WinUI 引导、启动异常、冒烟测试与压力测试诊断统一追加到 `程序目录\Log\WinUI.log`，不再写入系统临时目录。

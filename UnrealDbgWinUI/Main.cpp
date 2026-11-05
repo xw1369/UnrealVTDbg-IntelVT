@@ -8,6 +8,9 @@
 #include "UiTheme.h"
 
 #include <commdlg.h>
+#include <CommCtrl.h>
+#include <dwmapi.h>
+#include <Uxtheme.h>
 #include <microsoft.ui.xaml.window.h>
 #include <MddBootstrap.h>
 #include <Psapi.h>
@@ -46,6 +49,10 @@
 #include <winrt/Microsoft.UI.Windowing.h>
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 #include <winrt/Windows.Foundation.Collections.h>
+
+#pragma comment(lib, "Comctl32.lib")
+#pragma comment(lib, "Dwmapi.lib")
+#pragma comment(lib, "UxTheme.lib")
 
 using namespace winrt;
 using namespace winrt::Microsoft::UI::Xaml;
@@ -292,23 +299,26 @@ namespace
         {
             return;
         }
+        // 禁用外观完全由按钮模板的 *Disabled 资源表达（见 ApplyButtonVisuals），
+        // 不再叠加透明度。
         button.IsEnabled(enabled);
-        button.Opacity(enabled ? 1.0 : 0.42);
     }
 
     Button MakeIconButton(const hstring& glyph, const hstring& tooltip,
         ui::ButtonVariant variant = ui::ButtonVariant::Ghost)
     {
         Button button;
-        button.Content(tok::Icon(glyph, 14, variant == ui::ButtonVariant::Primary
-            ? tok::kTextOnAccent : tok::kTextSecondary));
+        // 图标前景色从按钮模板继承，悬停/禁用等状态才会生效（同 ui::MakeButton）。
+        FontIcon icon = tok::Icon(glyph, 14, tok::kTextSecondary);
+        icon.ClearValue(IconElement::ForegroundProperty());
+        button.Content(icon);
         winrt::Microsoft::UI::Xaml::Automation::AutomationProperties::SetName(
             button, tooltip);
-        button.Width(34);
-        button.Height(30);
+        button.Width(32);
+        button.Height(32);
         button.Padding(Thickness{ 0, 0, 0, 0 });
         button.CornerRadius(CornerRadius{
-            tok::kRadiusSm, tok::kRadiusSm, tok::kRadiusSm, tok::kRadiusSm });
+            tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd });
         button.BorderThickness(Thickness{ 1, 1, 1, 1 });
         button.VerticalAlignment(VerticalAlignment::Center);
         ui::ApplyButtonVisuals(button, variant);
@@ -316,23 +326,44 @@ namespace
         return button;
     }
 
+    // 圆润的柔色徽记：Claude 风格不用描边，靠浅底色 + 同色系文字区分状态。
     Border MakeSeal(const hstring& value, const double size = 30.0)
     {
         Border seal;
         seal.Width(size);
         seal.Height(size);
+        // 印章是 48~50px 的大块，按容器档取 kRadiusLg。
         seal.CornerRadius(CornerRadius{
-            tok::kRadiusSm, tok::kRadiusSm, tok::kRadiusSm, tok::kRadiusSm });
-        seal.Background(tok::Brush(tok::kCinnabarSoft));
-        seal.BorderBrush(tok::Brush(tok::kCinnabar));
-        seal.BorderThickness(Thickness{ 1, 1, 1, 1 });
-        TextBlock text = tok::Text(value, size * 0.45, tok::kCinnabar,
-            tok::kWeightSemiBold);
+            tok::kRadiusLg, tok::kRadiusLg, tok::kRadiusLg, tok::kRadiusLg });
+        seal.Background(tok::Brush(tok::kAccentSoft));
+        seal.BorderBrush(tok::Brush(tok::kAccentSoft));
+        seal.BorderThickness(Thickness{ 0, 0, 0, 0 });
+        TextBlock text = tok::Text(value, size * 0.42, tok::kAccentText,
+            tok::kWeightBold);
         text.HorizontalAlignment(HorizontalAlignment::Center);
         text.VerticalAlignment(VerticalAlignment::Center);
         text.TextAlignment(TextAlignment::Center);
         seal.Child(text);
         return seal;
+    }
+
+    // 标题栏品牌标记：陶土橙实心圆角方块 + 白字，是界面里唯一的实心强调色块。
+    Border MakeBrandMark(const hstring& value, const double size)
+    {
+        Border mark;
+        mark.Width(size);
+        mark.Height(size);
+        // 24px 小块，与图标底片同档。
+        mark.CornerRadius(CornerRadius{
+            tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd });
+        mark.Background(tok::Brush(tok::kAccent));
+        TextBlock text = tok::Text(value, size * 0.42, tok::kTextOnAccent,
+            tok::kWeightBold);
+        text.HorizontalAlignment(HorizontalAlignment::Center);
+        text.VerticalAlignment(VerticalAlignment::Center);
+        text.TextAlignment(TextAlignment::Center);
+        mark.Child(text);
+        return mark;
     }
 
     Border MakeDivider(const Color color, const double thickness = 1.0)
@@ -346,33 +377,22 @@ namespace
 
     Grid MakeSectionHeading(const hstring& title, const hstring& subtitle = L"")
     {
+        // Claude 风格的小节标题：纯文字层级，不再加竖向强调条。
         Grid row;
-        row.ColumnDefinitions().Append(ColumnDefinition());
-        row.ColumnDefinitions().GetAt(0).Width(GridLength{ 3 });
         ColumnDefinition textColumn;
         textColumn.Width(GridLength{ 1, GridUnitType::Star });
         row.ColumnDefinitions().Append(textColumn);
-        row.ColumnSpacing(9);
-
-        Border marker;
-        marker.Width(3);
-        marker.Height(subtitle.empty() ? 16 : 30);
-        marker.Background(tok::Brush(tok::kAccent));
-        marker.CornerRadius(CornerRadius{ 1.5, 1.5, 1.5, 1.5 });
-        marker.VerticalAlignment(VerticalAlignment::Center);
-        Grid::SetColumn(marker, 0);
-        row.Children().Append(marker);
 
         StackPanel labels;
         labels.Spacing(2);
         labels.Children().Append(tok::Text(title, tok::kFontSubtitle,
-            tok::kTextPrimary, tok::kWeightSemiBold));
+            tok::kTextPrimary, tok::kWeightBold));
         if (!subtitle.empty())
         {
             labels.Children().Append(tok::Text(subtitle, tok::kFontMicro + 0.5,
                 tok::kTextMuted));
         }
-        Grid::SetColumn(labels, 1);
+        Grid::SetColumn(labels, 0);
         row.Children().Append(labels);
         return row;
     }
@@ -578,7 +598,7 @@ namespace
         host.VerticalAlignment(VerticalAlignment::Center);
 
         Border background = tok::Surface(tok::kCardInset, tok::kBorder,
-            tok::kRadiusSm, 0);
+            tok::kRadiusMd, 0);
         background.Width(size);
         background.Height(size);
         host.Children().Append(background);
@@ -607,6 +627,84 @@ namespace
             fallback.Visibility(Visibility::Collapsed);
         }
         return host;
+    }
+
+    // ------------------------------------------------------------ 窗口边框
+    // 自绘标题栏后，Windows 10 上系统仍会留下两样东西：
+    //   1. 顶部 1px：WinUI（沿用 Windows Terminal 的做法）把内容岛下移 1px，
+    //      让 DWM 在这一行画系统边框色——Win10 默认是白色，和暖灰标题栏格格不入；
+    //   2. 左/右/下 1px：DWM 画的深灰窗口边框，Win10 没有 API 改它的颜色
+    //      （DWMWA_BORDER_COLOR 只有 Win11 支持）。
+    // 处理方式：Win10 把顶部 1px 重画成标题栏色；第 2 条无法在应用内消除
+    // （原因见 Shell::ApplyFrameBorder）。Win11 直接设置 DWM 边框颜色。
+    constexpr UINT_PTR kFrameSubclassId = 0xF3F3;
+    constexpr DWORD kDwmBorderColorAttribute = 34;  // DWMWA_BORDER_COLOR（Win11 22000+）
+
+    DWORD WindowsBuildNumber() noexcept
+    {
+        using RtlGetVersionFn = LONG(WINAPI*)(PRTL_OSVERSIONINFOW);
+        static const DWORD build = []() noexcept -> DWORD
+        {
+            const HMODULE ntdll = ::GetModuleHandleW(L"ntdll.dll");
+            const auto rtlGetVersion = ntdll == nullptr ? nullptr
+                : reinterpret_cast<RtlGetVersionFn>(
+                    ::GetProcAddress(ntdll, "RtlGetVersion"));
+            RTL_OSVERSIONINFOW info{};
+            info.dwOSVersionInfoSize = sizeof(info);
+            if (rtlGetVersion == nullptr || rtlGetVersion(&info) != 0)
+            {
+                return 0;
+            }
+            return info.dwBuildNumber;
+        }();
+        return build;
+    }
+
+    bool UsesWindows10Frame() noexcept
+    {
+        return WindowsBuildNumber() < 22000;
+    }
+
+    COLORREF ToColorRef(const Color color) noexcept
+    {
+        return RGB(color.R, color.G, color.B);
+    }
+
+    // 把 WinUI 留给 DWM 的顶部 1px 改画成主题色。这一行属于 DWM 玻璃区，
+    // 普通 GDI 填充写入的 alpha 为 0、等于透明，所以必须用 BufferedPaint
+    // 把 alpha 设成 255 才能真正盖住系统画的白线。
+    void PaintTopFrameLine(const HWND hwnd, const Color color) noexcept
+    {
+        if (hwnd == nullptr || ::IsZoomed(hwnd))
+        {
+            return;
+        }
+        RECT client{};
+        if (!::GetClientRect(hwnd, &client))
+        {
+            return;
+        }
+        RECT line{ client.left, client.top, client.right, client.top + 1 };
+        const HDC dc = ::GetDC(hwnd);
+        if (dc == nullptr)
+        {
+            return;
+        }
+        BP_PAINTPARAMS params{};
+        params.cbSize = sizeof(params);
+        params.dwFlags = BPPF_NOCLIP;
+        HDC bufferDc{};
+        const HPAINTBUFFER buffer = ::BeginBufferedPaint(
+            dc, &line, BPBF_TOPDOWNDIB, &params, &bufferDc);
+        if (buffer != nullptr)
+        {
+            const HBRUSH brush = ::CreateSolidBrush(ToColorRef(color));
+            ::FillRect(bufferDc, &line, brush);
+            ::DeleteObject(brush);
+            ::BufferedPaintSetAlpha(buffer, &line, 255);
+            ::EndBufferedPaint(buffer, TRUE);
+        }
+        ::ReleaseDC(hwnd, dc);
     }
 }
 
@@ -1119,13 +1217,13 @@ private:
         header.ColumnDefinitions().Append(actionColumn);
 
         StackPanel labels;
-        labels.Spacing(3);
+        labels.Spacing(4);
         TextBlock kicker = tok::Text(eyebrow, tok::kFontMicro,
-            tok::kGold, tok::kWeightSemiBold);
-        kicker.CharacterSpacing(80);
+            tok::kTextMuted, tok::kWeightRegular);
+        kicker.CharacterSpacing(40);
         labels.Children().Append(kicker);
         labels.Children().Append(tok::Text(title, tok::kFontTitle,
-            tok::kTextPrimary, tok::kWeightSemiBold));
+            tok::kTextPrimary, tok::kWeightBold));
         Grid::SetColumn(labels, 0);
         header.Children().Append(labels);
 
@@ -1143,10 +1241,15 @@ private:
         navSelectionInitialized_ = false;
         root_ = Grid();
         root_.RequestedTheme(darkTheme_ ? ElementTheme::Dark : ElementTheme::Light);
-        root_.Background(tok::Brush(tok::kWindowTop));
+        // 外框（标题栏 + 侧栏）用同一块暖色底，内容区作为圆角面板嵌入，
+        // 与 Claude 桌面端的布局一致。
+        root_.Background(tok::Brush(tok::kSidebar));
+        tok::ApplyAccentResources(root_.Resources());
 
         RowDefinition titleRow;
-        titleRow.Height(GridLength{ tok::kTitleBarHeight });
+        // 必须显式写 Pixel：GridLength{ v } 的 GridUnitType 零初始化为 Auto，
+        // 行高会退化成内容高度（约 33px），与 48px 的系统标题栏按钮错位。
+        titleRow.Height(GridLength{ tok::kTitleBarHeight, GridUnitType::Pixel });
         root_.RowDefinitions().Append(titleRow);
         RowDefinition bodyRow;
         bodyRow.Height(GridLength{ 1, GridUnitType::Star });
@@ -1158,7 +1261,7 @@ private:
 
         Grid body;
         ColumnDefinition navColumn;
-        navColumn.Width(GridLength{ tok::kNavWidth });
+        navColumn.Width(GridLength{ tok::kNavWidth, GridUnitType::Pixel });
         body.ColumnDefinitions().Append(navColumn);
         ColumnDefinition contentColumn;
         contentColumn.Width(GridLength{ 1, GridUnitType::Star });
@@ -1188,8 +1291,14 @@ private:
             page.Visibility(Visibility::Collapsed);
             pageHost_.Children().Append(page);
         }
-        Grid::SetColumn(pageHost_, 1);
-        body.Children().Append(pageHost_);
+        Border contentFrame;
+        contentFrame.Background(tok::Brush(tok::kWindowTop));
+        contentFrame.BorderBrush(tok::Brush(tok::kBorder));
+        contentFrame.BorderThickness(Thickness{ 1, 1, 0, 0 });
+        contentFrame.CornerRadius(CornerRadius{ tok::kRadiusLg, 0, 0, 0 });
+        contentFrame.Child(pageHost_);
+        Grid::SetColumn(contentFrame, 1);
+        body.Children().Append(contentFrame);
 
         Grid::SetRow(body, 1);
         root_.Children().Append(body);
@@ -1200,9 +1309,8 @@ private:
     {
         Grid bar;
         bar.Background(tok::Brush(tok::kTitleBar));
-        bar.Padding(Thickness{ 15, 0, 140, 0 });
-        bar.BorderBrush(tok::Brush(tok::kBorder));
-        bar.BorderThickness(Thickness{ 0, 0, 0, 1 });
+        // 左边距与侧栏对齐线一致，品牌标记和下方导航图标左缘对齐。
+        bar.Padding(Thickness{ tok::kSidebarInset, 0, tok::kTitleBarCaptionInset, 0 });
 
         ColumnDefinition brandColumn;
         brandColumn.Width(GridLength{ 1, GridUnitType::Auto });
@@ -1218,29 +1326,20 @@ private:
         brand.Orientation(Orientation::Horizontal);
         brand.Spacing(10);
         brand.VerticalAlignment(VerticalAlignment::Center);
-        brand.Children().Append(MakeSeal(L"F3", 28));
+        brand.Children().Append(MakeBrandMark(kProductName, 24));
 
-        StackPanel names;
-        names.Spacing(0);
-        names.VerticalAlignment(VerticalAlignment::Center);
-        StackPanel nameRow;
-        nameRow.Orientation(Orientation::Horizontal);
-        nameRow.Spacing(8);
-        nameRow.Children().Append(tok::Text(kProductName, tok::kFontBody + 1,
-            tok::kTextPrimary, tok::kWeightSemiBold));
-        nameRow.Children().Append(tok::Text(kProductSubtitle, tok::kFontCaption,
-            tok::kTextSecondary, tok::kWeightMedium));
-        names.Children().Append(nameRow);
-        names.Children().Append(tok::Text(L"UNREALDBG / RING -1",
-            tok::kFontMicro - 1, tok::kTextMuted, tok::kWeightMedium));
-        brand.Children().Append(names);
+        // 品牌标记里已经是 "F3"，文字只保留产品名一项。
+        TextBlock productName = tok::Text(kProductSubtitle, tok::kFontBody + 1,
+            tok::kTextPrimary, tok::kWeightBold);
+        productName.VerticalAlignment(VerticalAlignment::Center);
+        brand.Children().Append(productName);
         Grid::SetColumn(brand, 0);
         bar.Children().Append(brand);
 
         titleStatusPill_ = Border();
-        titleStatusPill_.Padding(Thickness{ 10, 4, 11, 4 });
-        titleStatusPill_.CornerRadius(CornerRadius{
-            tok::kRadiusSm, tok::kRadiusSm, tok::kRadiusSm, tok::kRadiusSm });
+        titleStatusPill_.Padding(Thickness{ 10, 4, 12, 4 });
+        titleStatusPill_.Margin(Thickness{ 0, 0, 10, 0 });
+        tok::MakeCapsule(titleStatusPill_);
         titleStatusPill_.BorderThickness(Thickness{ 1, 1, 1, 1 });
         titleStatusPill_.HorizontalAlignment(HorizontalAlignment::Right);
         titleStatusPill_.VerticalAlignment(VerticalAlignment::Center);
@@ -1249,7 +1348,7 @@ private:
         titleStatusContent.Spacing(7);
         titleStatusDot_ = tok::Dot(tok::kGold, 7);
         titleStatusText_ = tok::Text(L"正在载入后端", tok::kFontCaption,
-            tok::kTextPrimary, tok::kWeightMedium);
+            tok::kTextSecondary, tok::kWeightRegular);
         titleStatusText_.VerticalAlignment(VerticalAlignment::Center);
         titleStatusContent.Children().Append(titleStatusDot_);
         titleStatusContent.Children().Append(titleStatusText_);
@@ -1289,13 +1388,8 @@ private:
     {
         Border sidebar;
         sidebar.Background(tok::Brush(tok::kSidebar));
-        sidebar.BorderBrush(tok::Brush(tok::kBorder));
-        sidebar.BorderThickness(Thickness{ 0, 0, 1, 0 });
 
         Grid layout;
-        RowDefinition headingRow;
-        headingRow.Height(GridLength{ 1, GridUnitType::Auto });
-        layout.RowDefinitions().Append(headingRow);
         RowDefinition navRow;
         navRow.Height(GridLength{ 1, GridUnitType::Star });
         layout.RowDefinitions().Append(navRow);
@@ -1303,19 +1397,12 @@ private:
         footerRow.Height(GridLength{ 1, GridUnitType::Auto });
         layout.RowDefinitions().Append(footerRow);
 
-        StackPanel heading;
-        heading.Padding(Thickness{ 18, 18, 18, 10 });
-        heading.Spacing(3);
-        heading.Children().Append(tok::Text(L"调试工作区", tok::kFontSubtitle,
-            tok::kTextPrimary, tok::kWeightSemiBold));
-        heading.Children().Append(tok::Text(L"LOCAL CONSOLE", tok::kFontMicro - 1,
-            tok::kTextMuted, tok::kWeightMedium));
-        Grid::SetRow(heading, 0);
-        layout.Children().Append(heading);
-
+        // 侧栏对齐规则：
+        //   左缘——导航图标、底部状态卡内文字、标题栏品牌标记都从 kSidebarInset 开始；
+        //   顶边——导航列表顶部不留白，第一项的选中底色上沿与右侧内容面板的上边框齐平。
         StackPanel nav;
-        nav.Padding(Thickness{ 10, 4, 10, 8 });
-        nav.Spacing(3);
+        nav.Padding(Thickness{ tok::kSidebarGutter, 0, tok::kSidebarGutter, 8 });
+        nav.Spacing(2);
         nav.Children().Append(BuildNavItem(PageId::Overview,
             tok::kGlyphOverview, L"总览"));
         nav.Children().Append(BuildNavItem(PageId::Debuggers,
@@ -1323,7 +1410,7 @@ private:
         nav.Children().Append(BuildNavItem(PageId::Target,
             tok::kGlyphShield, L"目标与防护"));
         nav.Children().Append(BuildNavItem(PageId::Hooks,
-            tok::kGlyphShield, L"驱动 Hook"));
+            tok::kGlyphLink, L"驱动 Hook"));
         nav.Children().Append(BuildNavItem(PageId::Logs,
             tok::kGlyphLog, L"日志中心"));
         nav.Children().Append(BuildNavItem(PageId::System,
@@ -1332,21 +1419,22 @@ private:
             tok::kGlyphSymbols, L"系统符号"));
         nav.Children().Append(BuildNavItem(PageId::Diagnostics,
             tok::kGlyphAbout, L"诊断与文件"));
-        Grid::SetRow(nav, 1);
+        Grid::SetRow(nav, 0);
         layout.Children().Append(nav);
 
         Border footer;
-        footer.Margin(Thickness{ 10, 0, 10, 12 });
-        footer.Padding(Thickness{ 11, 10, 11, 10 });
-        footer.Background(tok::Brush(tok::kCardInset));
+        footer.Margin(Thickness{ tok::kSidebarGutter, 0, tok::kSidebarGutter, 12 });
+        footer.Padding(Thickness{ tok::kSidebarInset - tok::kSidebarGutter, 11,
+            tok::kSidebarInset - tok::kSidebarGutter, 11 });
+        footer.Background(tok::Brush(tok::kWindowTop));
         footer.BorderBrush(tok::Brush(tok::kBorder));
         footer.BorderThickness(Thickness{ 1, 1, 1, 1 });
         footer.CornerRadius(CornerRadius{
-            tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd });
+            tok::kRadiusLg, tok::kRadiusLg, tok::kRadiusLg, tok::kRadiusLg });
         StackPanel footerBody;
         footerBody.Spacing(7);
-        footerBody.Children().Append(tok::Text(L"运行环境", tok::kFontMicro,
-            tok::kTextMuted, tok::kWeightSemiBold));
+        footerBody.Children().Append(tok::Text(L"运行环境", tok::kFontCaption,
+            tok::kTextMuted, tok::kWeightRegular));
         Grid backendSummary;
         backendSummary.ColumnDefinitions().Append(ColumnDefinition());
         backendSummary.ColumnDefinitions().GetAt(0).Width(GridLength{ 1, GridUnitType::Star });
@@ -1355,7 +1443,7 @@ private:
         backendSummary.Children().Append(tok::Text(L"后端", tok::kFontCaption,
             tok::kTextSecondary));
         navBackendText_ = tok::Text(L"载入中", tok::kFontCaption,
-            tok::kGold, tok::kWeightMedium);
+            tok::kGold, tok::kWeightRegular);
         navBackendText_.HorizontalAlignment(HorizontalAlignment::Right);
         Grid::SetColumn(navBackendText_, 1);
         backendSummary.Children().Append(navBackendText_);
@@ -1371,9 +1459,9 @@ private:
         symbolSummary.Children().Append(tok::Text(L"符号", tok::kFontCaption,
             tok::kTextSecondary));
         navSymbolText_ = tok::Text(L"准备中", tok::kFontCaption,
-            tok::kGold, tok::kWeightMedium);
+            tok::kGold, tok::kWeightRegular);
         navSymbolText_.HorizontalAlignment(HorizontalAlignment::Right);
-        navSymbolText_.MaxWidth(112);
+        navSymbolText_.MaxWidth(tok::kNavValueMaxWidth);
         navSymbolText_.TextTrimming(TextTrimming::CharacterEllipsis);
         Grid::SetColumn(navSymbolText_, 1);
         symbolSummary.Children().Append(navSymbolText_);
@@ -1387,15 +1475,15 @@ private:
         targetSummary.Children().Append(tok::Text(L"目标", tok::kFontCaption,
             tok::kTextSecondary));
         navTargetText_ = tok::Text(L"未选择", tok::kFontCaption,
-            tok::kTextMuted, tok::kWeightMedium);
+            tok::kTextMuted, tok::kWeightRegular);
         navTargetText_.HorizontalAlignment(HorizontalAlignment::Right);
-        navTargetText_.MaxWidth(96);
+        navTargetText_.MaxWidth(tok::kNavValueMaxWidth);
         navTargetText_.TextTrimming(TextTrimming::CharacterEllipsis);
         Grid::SetColumn(navTargetText_, 1);
         targetSummary.Children().Append(navTargetText_);
         footerBody.Children().Append(targetSummary);
         footer.Child(footerBody);
-        Grid::SetRow(footer, 2);
+        Grid::SetRow(footer, 1);
         layout.Children().Append(footer);
 
         sidebar.Child(layout);
@@ -1408,20 +1496,24 @@ private:
         Button item;
         item.Tag(box_value(static_cast<int32_t>(page)));
         item.Height(tok::kNavItemHeight);
-        item.Padding(Thickness{ 9, 0, 10, 0 });
+        // Button 默认按内容宽度左对齐，选中/悬停底色会随文字长短参差不齐；
+        // 拉伸到整列宽度，所有导航项与底部状态卡等宽。
+        item.HorizontalAlignment(HorizontalAlignment::Stretch);
+        item.Padding(Thickness{ tok::kSidebarInset - tok::kSidebarGutter, 0, 10, 0 });
         item.HorizontalContentAlignment(HorizontalAlignment::Stretch);
         item.CornerRadius(CornerRadius{
             tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd });
-        item.BorderThickness(Thickness{ 1, 1, 1, 1 });
-        item.BorderBrush(tok::Brush(tok::Rgb(0, 0, 0, 0)));
-        item.Background(tok::Brush(tok::Rgb(0, 0, 0, 0)));
+        // Claude 侧栏：无边框，悬停/选中只靠暖灰底色区分。
+        ui::ApplyButtonVisuals(item, ui::ButtonVariant::Ghost);
+        item.BorderThickness(Thickness{ 0, 0, 0, 0 });
+        item.Background(tok::Brush(tok::Transparent(tok::kCardHover)));
 
+        // Claude 风格不使用左侧强调条（选中态由底色表达），因此不再给强调条
+        // 预留列宽，避免图标和文字整体右移、与分组标题错位。
         Grid content;
-        ColumnDefinition markerColumn;
-        markerColumn.Width(GridLength{ 3 });
-        content.ColumnDefinitions().Append(markerColumn);
+        content.ColumnSpacing(10);
         ColumnDefinition iconColumn;
-        iconColumn.Width(GridLength{ 31 });
+        iconColumn.Width(GridLength{ 16, GridUnitType::Pixel });
         content.ColumnDefinitions().Append(iconColumn);
         ColumnDefinition textColumn;
         textColumn.Width(GridLength{ 1, GridUnitType::Star });
@@ -1430,26 +1522,16 @@ private:
         countColumn.Width(GridLength{ 1, GridUnitType::Auto });
         content.ColumnDefinitions().Append(countColumn);
 
-        Border marker;
-        marker.Width(3);
-        marker.Height(17);
-        marker.CornerRadius(CornerRadius{ 1.5, 1.5, 1.5, 1.5 });
-        marker.Background(tok::Brush(tok::kAccent));
-        marker.Visibility(Visibility::Collapsed);
-        marker.VerticalAlignment(VerticalAlignment::Center);
-        Grid::SetColumn(marker, 0);
-        content.Children().Append(marker);
-        navMarkers_[static_cast<size_t>(page)] = marker;
-
         FontIcon icon = tok::Icon(glyph, 15, tok::kTextMuted);
-        icon.HorizontalAlignment(HorizontalAlignment::Center);
-        Grid::SetColumn(icon, 1);
+        icon.HorizontalAlignment(HorizontalAlignment::Left);
+        Grid::SetColumn(icon, 0);
         content.Children().Append(icon);
 
         TextBlock caption = tok::Text(label, tok::kFontBody,
-            tok::kTextSecondary, tok::kWeightMedium);
+            tok::kTextSecondary, tok::kWeightRegular);
         caption.VerticalAlignment(VerticalAlignment::Center);
-        Grid::SetColumn(caption, 2);
+        caption.TextTrimming(TextTrimming::CharacterEllipsis);
+        Grid::SetColumn(caption, 1);
         content.Children().Append(caption);
         navTexts_[static_cast<size_t>(page)] = caption;
         navIcons_[static_cast<size_t>(page)] = icon;
@@ -1457,8 +1539,10 @@ private:
         if (page == PageId::Debuggers)
         {
             navDebuggerBadge_ = tok::Pill(L"0", tok::kTextMuted,
-                tok::kSunken, tok::kFontMicro - 1);
-            Grid::SetColumn(navDebuggerBadge_, 3);
+                tok::kSunken, tok::kFontMicro);
+            navDebuggerBadge_.Padding(Thickness{ 7, 1, 7, 1 });
+            navDebuggerBadge_.MinWidth(22);
+            Grid::SetColumn(navDebuggerBadge_, 2);
             content.Children().Append(navDebuggerBadge_);
         }
 
@@ -1533,10 +1617,10 @@ private:
         statusText.Spacing(3);
         statusText.VerticalAlignment(VerticalAlignment::Center);
         statusEyebrow_ = tok::Text(L"SYSTEM STATE / 本机调试通道",
-            tok::kFontMicro, tok::kGold, tok::kWeightSemiBold);
-        statusEyebrow_.CharacterSpacing(55);
+            tok::kFontMicro, tok::kTextMuted, tok::kWeightRegular);
+        statusEyebrow_.CharacterSpacing(40);
         statusTitle_ = tok::Text(L"正在载入后端", tok::kFontHero,
-            tok::kTextPrimary, tok::kWeightSemiBold);
+            tok::kTextPrimary, tok::kWeightBold);
         statusDetail_ = tok::Text(L"等待后端接口检查",
             tok::kFontBody, tok::kTextMuted);
         statusDetail_.TextTrimming(TextTrimming::CharacterEllipsis);
@@ -1790,12 +1874,12 @@ private:
         StackPanel toolbarText;
         toolbarText.Spacing(2);
         toolbarText.Children().Append(tok::Text(L"列表与旧版 Delphi 前端共用",
-            tok::kFontCaption, tok::kTextSecondary, tok::kWeightMedium));
+            tok::kFontCaption, tok::kTextSecondary, tok::kWeightRegular));
         toolbarText.Children().Append(tok::Text(L"DebuggerList.ini / 配置",
             tok::kFontMicro, tok::kTextMuted));
         toolbar.Children().Append(toolbarText);
         debuggerCountText_ = tok::Text(L"0 项", tok::kFontSubtitle,
-            tok::kGold, tok::kWeightSemiBold);
+            tok::kTextPrimary, tok::kWeightBold);
         debuggerCountText_.VerticalAlignment(VerticalAlignment::Center);
         Grid::SetColumn(debuggerCountText_, 1);
         toolbar.Children().Append(debuggerCountText_);
@@ -1881,7 +1965,7 @@ private:
         targetText.Spacing(3);
         targetText.VerticalAlignment(VerticalAlignment::Center);
         targetNameText_ = tok::Text(L"尚未选择目标进程", tok::kFontSubtitle + 2,
-            tok::kTextPrimary, tok::kWeightSemiBold);
+            tok::kTextPrimary, tok::kWeightBold);
         targetPidText_ = tok::Text(L"选择前台游戏进程后，防检测开关才会参与运行",
             tok::kFontCaption, tok::kTextMuted);
         targetPathText_ = tok::Mono(L"—", tok::kFontMicro, tok::kTextSecondary);
@@ -1986,7 +2070,7 @@ private:
         StackPanel noteBody;
         noteBody.Spacing(5);
         noteBody.Children().Append(tok::Text(L"选择说明", tok::kFontCaption,
-            tok::kGold, tok::kWeightSemiBold));
+            tok::kTextPrimary, tok::kWeightBold));
         noteBody.Children().Append(tok::TextWrapped(
             L"点击捕获后 3 秒内切换到目标窗口，调试台会读取当前前台 PID 与映像路径。",
             tok::kFontCaption, tok::kTextMuted));
@@ -2034,7 +2118,7 @@ private:
         stateRow.ColumnDefinitions().GetAt(1).Width(
             GridLength{ 1, GridUnitType::Auto });
         symbolStatusText_ = tok::Text(L"等待校验", tok::kFontCaption,
-            tok::kGold, tok::kWeightMedium);
+            tok::kGold, tok::kWeightRegular);
         symbolStatusText_.TextTrimming(TextTrimming::CharacterEllipsis);
         stateRow.Children().Append(symbolStatusText_);
         symbolProgressText_ = tok::Text(L"0%", tok::kFontCaption,
@@ -2198,7 +2282,7 @@ private:
         actions.Orientation(Orientation::Horizontal);
         actions.Spacing(7);
         hookSummaryText_ = tok::Text(L"0 / 0", tok::kFontCaption,
-            tok::kTextSecondary, tok::kWeightSemiBold);
+            tok::kTextSecondary, tok::kWeightBold);
         hookSummaryText_.VerticalAlignment(VerticalAlignment::Center);
         actions.Children().Append(hookSummaryText_);
         Button enableAll = ui::MakeButton(L"全部启用", tok::kGlyphCheck,
@@ -2230,7 +2314,7 @@ private:
 
         hookLockText_ = tok::Text(
             L"仅在进入 VT 前可编辑；点击“进入 VT 调试模式”后自动锁定。",
-            tok::kFontCaption, tok::kGold, tok::kWeightMedium);
+            tok::kFontCaption, tok::kGold, tok::kWeightRegular);
         hookLockText_.TextWrapping(TextWrapping::Wrap);
         content.Children().Append(hookLockText_);
 
@@ -2382,7 +2466,7 @@ private:
         Grid selector;
         selector.ColumnSpacing(10);
         ColumnDefinition comboColumn;
-        comboColumn.Width(GridLength{ 230 });
+        comboColumn.Width(GridLength{ 230, GridUnitType::Pixel });
         selector.ColumnDefinitions().Append(comboColumn);
         ColumnDefinition statusColumn;
         statusColumn.Width(GridLength{ 1, GridUnitType::Star });
@@ -2471,7 +2555,7 @@ private:
         externalLogText_.IsReadOnly(true);
         externalLogText_.IsSpellCheckEnabled(false);
         externalLogText_.TextWrapping(TextWrapping::NoWrap);
-        externalLogText_.FontFamily(FontFamily(L"Cascadia Mono"));
+        externalLogText_.FontFamily(FontFamily(tok::kMonoFontFamily));
         externalLogText_.FontSize(tok::kFontMicro);
         externalLogText_.Foreground(tok::Brush(tok::kTextSecondary));
         externalLogText_.Background(tok::Brush(tok::kSunken));
@@ -2612,7 +2696,7 @@ private:
         layout.Children().Append(heading);
 
         offsetSummaryText_ = tok::Text(L"等待符号准备",
-            tok::kFontCaption, tok::kGold, tok::kWeightSemiBold);
+            tok::kFontCaption, tok::kGold, tok::kWeightBold);
         Grid::SetRow(offsetSummaryText_, 1);
         layout.Children().Append(offsetSummaryText_);
 
@@ -2638,7 +2722,7 @@ private:
         searchColumn.Width(GridLength{ 1, GridUnitType::Star });
         searchRow.ColumnDefinitions().Append(searchColumn);
         ColumnDefinition pdbColumn;
-        pdbColumn.Width(GridLength{ 220 });
+        pdbColumn.Width(GridLength{ 220, GridUnitType::Pixel });
         searchRow.ColumnDefinitions().Append(pdbColumn);
 
         symbolSearchBox_ = TextBox();
@@ -2663,7 +2747,7 @@ private:
         Grid optionsRow;
         optionsRow.ColumnSpacing(9);
         ColumnDefinition kindColumn;
-        kindColumn.Width(GridLength{ 135 });
+        kindColumn.Width(GridLength{ 135, GridUnitType::Pixel });
         optionsRow.ColumnDefinitions().Append(kindColumn);
         ColumnDefinition usedColumn;
         usedColumn.Width(GridLength{ 1, GridUnitType::Auto });
@@ -2744,7 +2828,7 @@ private:
                 GridUnitType::Star });
             tableHeader.ColumnDefinitions().Append(column);
             TextBlock label = tok::Text(tableLabels[index],
-                tok::kFontMicro, tok::kTextMuted, tok::kWeightSemiBold);
+                tok::kFontMicro, tok::kTextMuted, tok::kWeightBold);
             Grid::SetColumn(label, static_cast<int>(index));
             tableHeader.Children().Append(label);
         }
@@ -2890,8 +2974,10 @@ private:
 
         if (titleStatusPill_ != nullptr)
         {
-            titleStatusPill_.Background(tok::Brush(tok::kSunken));
-            titleStatusPill_.BorderBrush(tok::Brush(tok::kBorder));
+            // 标题栏是暖灰底，白色胶囊会突兀地"浮"出来；改为透明底 + 细描边，
+            // 状态只由小圆点颜色表达。
+            titleStatusPill_.Background(tok::Brush(tok::Transparent(tok::kTitleBar)));
+            titleStatusPill_.BorderBrush(tok::Brush(tok::kBorderStrong));
             titleStatusText_.Text(badge);
             titleStatusDot_.Background(tok::Brush(color));
         }
@@ -2946,7 +3032,8 @@ private:
 
         const auto set = [](const TextBlock& block, const hstring& value)
         {
-            if (block != nullptr)
+            // 每秒随时钟触发一次：值没变就什么都不碰，避免无谓的重排与提示框闪烁。
+            if (block != nullptr && block.Text() != value)
             {
                 block.Text(value);
                 tok::SetToolTip(block, value);
@@ -2971,7 +3058,7 @@ private:
         Grid row;
         row.ColumnSpacing(10);
         ColumnDefinition iconColumn;
-        iconColumn.Width(GridLength{ 34 });
+        iconColumn.Width(GridLength{ 34, GridUnitType::Pixel });
         row.ColumnDefinitions().Append(iconColumn);
         ColumnDefinition textColumn;
         textColumn.Width(GridLength{ 1, GridUnitType::Star });
@@ -2986,7 +3073,7 @@ private:
         text.Spacing(2);
         text.VerticalAlignment(VerticalAlignment::Center);
         text.Children().Append(tok::Text(H(entry.name), tok::kFontBody,
-            tok::kTextPrimary, tok::kWeightMedium));
+            tok::kTextPrimary, tok::kWeightRegular));
         TextBlock path = tok::Mono(H(entry.path), tok::kFontMicro,
             tok::kTextMuted);
         path.TextTrimming(TextTrimming::CharacterEllipsis);
@@ -3020,7 +3107,7 @@ private:
         StackPanel body;
         body.Spacing(4);
         body.Children().Append(tok::Text(title, tok::kFontBody,
-            tok::kTextSecondary, tok::kWeightMedium));
+            tok::kTextSecondary, tok::kWeightRegular));
         body.Children().Append(tok::Text(detail, tok::kFontCaption,
             tok::kTextMuted));
         empty.Child(body);
@@ -3055,7 +3142,7 @@ private:
             item.MinWidth(0);
             item.HorizontalContentAlignment(HorizontalAlignment::Stretch);
             item.VerticalContentAlignment(VerticalAlignment::Center);
-            item.Background(tok::Brush(tok::Rgb(0, 0, 0, 0)));
+            item.Background(tok::Brush(tok::Transparent(tok::kCardInset)));
             item.BorderBrush(tok::Brush(tok::kBorder));
             item.BorderThickness(Thickness{ 0, 0, 0, 1 });
             item.CornerRadius(CornerRadius{ 0, 0, 0, 0 });
@@ -3322,7 +3409,7 @@ private:
                 row.ColumnSpacing(8);
                 row.Padding(Thickness{ 0, 5, 0, 5 });
                 ColumnDefinition dotColumn;
-                dotColumn.Width(GridLength{ 8 });
+                dotColumn.Width(GridLength{ 8, GridUnitType::Pixel });
                 row.ColumnDefinitions().Append(dotColumn);
                 ColumnDefinition textColumn;
                 textColumn.Width(GridLength{ 1, GridUnitType::Star });
@@ -3338,7 +3425,7 @@ private:
                 StackPanel text;
                 text.Spacing(1);
                 TextBlock name = tok::Text(H(module.moduleName),
-                    tok::kFontCaption, tok::kTextPrimary, tok::kWeightMedium);
+                    tok::kFontCaption, tok::kTextPrimary, tok::kWeightRegular);
                 TextBlock detail = tok::Text(H(module.detail),
                     tok::kFontMicro, tok::kTextMuted);
                 detail.TextTrimming(TextTrimming::CharacterEllipsis);
@@ -3369,7 +3456,7 @@ private:
                 row.Children().Append(text);
 
                 TextBlock status = tok::Text(moduleState, tok::kFontMicro,
-                    moduleColor, tok::kWeightMedium);
+                    moduleColor, tok::kWeightRegular);
                 status.VerticalAlignment(VerticalAlignment::Center);
                 Grid::SetColumn(status, 2);
                 row.Children().Append(status);
@@ -3701,14 +3788,14 @@ private:
                 Grid row;
                 row.Padding(Thickness{ 0, 7, 0, 7 });
                 ColumnDefinition labelColumn;
-                labelColumn.Width(GridLength{ 138 });
+                labelColumn.Width(GridLength{ 138, GridUnitType::Pixel });
                 row.ColumnDefinitions().Append(labelColumn);
                 ColumnDefinition valueColumn;
                 valueColumn.Width(GridLength{ 1, GridUnitType::Star });
                 row.ColumnDefinitions().Append(valueColumn);
                 TextBlock label = tok::Text(H(item.label + L"："),
                     tok::kFontCaption,
-                    tok::kTextSecondary, tok::kWeightMedium);
+                    tok::kTextSecondary, tok::kWeightRegular);
                 row.Children().Append(label);
                 TextBlock value = tok::Mono(H(item.value),
                     tok::kFontMicro, tok::kTextPrimary);
@@ -4352,26 +4439,26 @@ private:
         Button item = navButtons_[static_cast<size_t>(index)];
         if (marker != nullptr)
         {
-            marker.Visibility(selected
-                ? Visibility::Visible : Visibility::Collapsed);
+            // Claude 风格不使用左侧强调条，选中态由底色表达。
+            marker.Visibility(Visibility::Collapsed);
         }
         if (text != nullptr)
         {
             text.Foreground(tok::Brush(selected
                 ? tok::kTextPrimary : tok::kTextSecondary));
-            text.FontWeight(selected ? tok::kWeightSemiBold : tok::kWeightMedium);
+            // 选中态只靠底色和文字颜色区分，字重不变：字体没有 Medium 字面，
+            // 升到 Bold 又会让文字变宽、与相邻项粗细反差过大。
+            text.FontWeight(tok::kWeightRegular);
         }
         if (icon != nullptr)
         {
             icon.Foreground(tok::Brush(selected
-                ? tok::kAccent : tok::kTextMuted));
+                ? tok::kTextPrimary : tok::kTextMuted));
         }
         if (item != nullptr)
         {
             item.Background(tok::Brush(selected
-                ? tok::kCard : tok::Rgb(0, 0, 0, 0)));
-            item.BorderBrush(tok::Brush(selected
-                ? tok::kBorderStrong : tok::Rgb(0, 0, 0, 0)));
+                ? tok::kCardHover : tok::Transparent(tok::kCardHover)));
         }
     }
 
@@ -4818,6 +4905,12 @@ private:
             return;
         }
         hwnd_ = handle;
+        static const bool bufferedPaintReady = SUCCEEDED(::BufferedPaintInit());
+        if (bufferedPaintReady)
+        {
+            ::SetWindowSubclass(handle, &Shell::FrameSubclassProc,
+                kFrameSubclassId, reinterpret_cast<DWORD_PTR>(this));
+        }
         RECT work{};
         ::SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0);
         const int workWidth = work.right - work.left;
@@ -4830,6 +4923,64 @@ private:
             work.left + (workWidth - width) / 2,
             work.top + (workHeight - height) / 2,
             width, height, SWP_NOZORDER);
+        ApplyFrameBorder();
+    }
+
+    static LRESULT CALLBACK FrameSubclassProc(const HWND hwnd, const UINT message,
+        const WPARAM wParam, const LPARAM lParam, UINT_PTR, const DWORD_PTR refData)
+    {
+        Shell* const self = reinterpret_cast<Shell*>(refData);
+        switch (message)
+        {
+        case WM_PAINT:
+            if (UsesWindows10Frame())
+            {
+                // WinUI 先画（它会把顶部 1px 涂成交给 DWM 的透明色），再盖上标题栏色，
+                // 让这一行与标题栏融为一体，不再出现白线。
+                const LRESULT result = ::DefSubclassProc(hwnd, message, wParam, lParam);
+                PaintTopFrameLine(hwnd, tok::kTitleBar);
+                return result;
+            }
+            break;
+        case WM_SIZE:
+            if (self != nullptr)
+            {
+                self->ApplyFrameBorder();
+            }
+            break;
+        case WM_NCDESTROY:
+            ::RemoveWindowSubclass(hwnd, &Shell::FrameSubclassProc, kFrameSubclassId);
+            break;
+        default:
+            break;
+        }
+        return ::DefSubclassProc(hwnd, message, wParam, lParam);
+    }
+
+    // Win11：DWM 边框直接改成主题色细线。
+    // Win10：只能处理顶部那 1px（重画成标题栏色）。左/右/下的深灰细线是 DWM
+    // 紧贴客户区外侧画的系统边框——客户区扩到哪它就跟到哪，Win10 也没有改色
+    // API；要去掉只能把窗口做成完全无边框，而那样 WinUI 内容岛会盖住边缘，
+    // 拖边缩放失效，得不偿失。它的颜色只受系统设置"在标题栏和窗口边框上显示
+    // 强调色"控制。
+    void ApplyFrameBorder()
+    {
+        if (hwnd_ == nullptr)
+        {
+            return;
+        }
+        if (!UsesWindows10Frame())
+        {
+            const COLORREF color = ToColorRef(tok::kBorderStrong);
+            ::DwmSetWindowAttribute(hwnd_, kDwmBorderColorAttribute, &color, sizeof(color));
+            return;
+        }
+        RECT client{};
+        if (::GetClientRect(hwnd_, &client))
+        {
+            RECT line{ client.left, client.top, client.right, client.top + 1 };
+            ::InvalidateRect(hwnd_, &line, FALSE);
+        }
     }
 
     void RefreshThemeButton()
@@ -4840,7 +4991,6 @@ private:
         }
         themeButtonIcon_.Glyph(darkTheme_
             ? tok::kGlyphSun : tok::kGlyphMoon);
-        themeButtonIcon_.Foreground(tok::Brush(tok::kTextSecondary));
         tok::SetToolTip(themeButton_,
             darkTheme_ ? L"切换到明亮主题" : L"切换到暗黑主题");
     }
@@ -4851,6 +5001,10 @@ private:
         try
         {
             auto titleBar = window_.AppWindow().TitleBar();
+            // Tall = 48px，与 kTitleBarHeight 一致；默认 Standard 只有 32px，
+            // 系统按钮会贴顶，和垂直居中的自绘图标不在一条线上。
+            titleBar.PreferredHeightOption(
+                winrt::Microsoft::UI::Windowing::TitleBarHeightOption::Tall);
             titleBar.ButtonBackgroundColor(tok::kTitleBar);
             titleBar.ButtonForegroundColor(tok::kTextSecondary);
             titleBar.ButtonHoverBackgroundColor(tok::kCardHover);
@@ -4864,6 +5018,8 @@ private:
         {
             // Caption theming is optional; the WinUI content remains valid.
         }
+        // 主题切换会重建根元素并换色，外框跟着重画。
+        ApplyFrameBorder();
     }
 
     void ToggleTheme(const bool persist = true)
