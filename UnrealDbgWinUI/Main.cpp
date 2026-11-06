@@ -1720,6 +1720,10 @@ private:
 
         overviewDebuggerList_ = ListView();
         ConfigureListView(overviewDebuggerList_);
+        // ListView 项模板会把底色左右各内缩 4px；这里向外抵消，让行底色左右缘
+        // 与上方小节标题、"+"按钮对齐。（调试器页的列表在带边框的面板里，
+        // 那 4px 正好是与边框的间距，不做抵消。）
+        overviewDebuggerList_.Margin(Thickness{ -4, 0, -4, 0 });
         overviewDebuggerList_.SelectionChanged(
             { this, &Shell::OnOverviewDebuggerSelectionChanged });
         overviewDebuggerList_.DoubleTapped(
@@ -3083,7 +3087,7 @@ private:
         row.Children().Append(text);
 
         Border badge = tok::Pill(L"EXE", tok::kTextSecondary,
-            tok::kSunken, tok::kFontMicro - 1);
+            tok::kSunken, tok::kFontMicro);
         badge.VerticalAlignment(VerticalAlignment::Center);
         Grid::SetColumn(badge, 2);
         row.Children().Append(badge);
@@ -3133,19 +3137,21 @@ private:
         const size_t count = (std::min)(entries.size(), limit);
         for (size_t index = 0; index < count; ++index)
         {
+            // 列表项与导航项同一套样式：圆角 8 的悬停/选中底色、无分隔线，
+            // 内容在底色内左右各留 12px，不贴边。
             ListViewItem item;
             item.Content(MakeDebuggerRow(entries[index]));
             item.Tag(box_value(H(entries[index].path)));
-            item.Padding(Thickness{ 0, 0, 0, 0 });
-            item.Margin(Thickness{ 0, 0, 0, 0 });
-            item.MinHeight(55);
+            item.Padding(Thickness{ 12, 8, 12, 8 });
+            item.Margin(Thickness{ 0, 0, 0, 2 });
+            item.MinHeight(52);
             item.MinWidth(0);
             item.HorizontalContentAlignment(HorizontalAlignment::Stretch);
             item.VerticalContentAlignment(VerticalAlignment::Center);
             item.Background(tok::Brush(tok::Transparent(tok::kCardInset)));
-            item.BorderBrush(tok::Brush(tok::kBorder));
-            item.BorderThickness(Thickness{ 0, 0, 0, 1 });
-            item.CornerRadius(CornerRadius{ 0, 0, 0, 0 });
+            item.BorderThickness(Thickness{ 0, 0, 0, 0 });
+            item.CornerRadius(CornerRadius{
+                tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd, tok::kRadiusMd });
             list.Items().Append(item);
         }
     }
